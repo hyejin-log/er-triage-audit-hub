@@ -23,7 +23,8 @@
 
 - **프론트엔드**: React 18 + Vite 6 + TypeScript (반응형, 다크 모드)
 - **백엔드**: Python FastAPI + pydantic v2 (Vercel Python 서버리스 함수)
-- **DB(선택)**: Postgres(Neon) + psycopg 3 — 담당자 결정과 이력 저장
+- **DB**: Postgres(Neon) + psycopg 3 — 담당자 결정과 이력 저장
+- **인증**: Supabase Auth 이메일 매직 링크 — 로그인한 담당자만 결정 기록, 검토자 = 로그인 이메일
 - **AI(선택)**: Anthropic Claude (`claude-opus-5-5`) — 키가 없으면 규칙 엔진 근거로 대체
 - **내보내기**: openpyxl 엑셀
 - **배포**: Vercel (GitHub 연동)
@@ -104,6 +105,7 @@ npm run dev
 
 ## 다음 단계
 
-- 인증: 감사 담당자 로그인(현재는 이름 입력만), 역할별 권한
+- 역할별 권한: 현재는 AUDITOR_EMAILS / AUDITOR_EMAIL_DOMAINS 허용 목록만 지원
+- 로그인 메일 발송: Supabase 기본 SMTP는 시간당 발송 수가 적으니 운영 시 커스텀 SMTP 연결
 - 실데이터 연동: 비식별화 파이프라인 후 EMR/NEDIS 형식 import
 - 감사 기준 설정 화면: 기관별 기준값 조정

@@ -1,6 +1,8 @@
 // [개발 > 프론트엔드] 앱 셸 — 탭 구성은 Rebate Lens(한눈에 보기 / 확인 필요 / 정상 진행 / 전체 / 근거 자료)를 따릅니다.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, ApiError } from "./api";
+import { api, ApiError, setAuthToken } from "./api";
+import { authEnabled, supabase } from "./supabase";
+import AuthBar from "./components/AuthBar";
 import type { Decision, Review, Rule, Summary, Visit } from "./types";
 import { safeStorage, saveStorage } from "./format";
 import Overview from "./components/Overview";
@@ -22,6 +24,23 @@ export default function App() {
   const [selected, setSelected] = useState<Visit | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // [개발 > 인증] Supabase 세션을 따라 API 토큰과 로그인 이메일을 맞춥니다.
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthToken(data.session?.access_token ?? null);
+      setUserEmail(data.session?.user.email ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthToken(session?.access_token ?? null);
+      setUserEmail(session?.user.email ?? null);
+      if (event === "SIGNED_IN") setToast(`${session?.user.email}로 로그인했어요`);
+      if (event === "SIGNED_OUT") setToast("로그아웃했어요");
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -37,8 +56,8 @@ export default function App() {
     try {
       const rv = await api.reviews();
       setStoreName(rv.store);
-      // 서버 기록을 우선하고, 서버가 비어 있으면(서버리스 재시작) 브라우저 사본을 유지합니다.
-      setReviews((local) => ({ ...local, ...rv.items }));
+      // DB(Postgres)가 있으면 서버 기록만 믿고, 메모리 저장일 때만 브라우저 사본과 합칩니다.
+      setReviews((local) => (rv.store === "postgres" ? rv.items : { ...local, ...rv.items }));
     } catch {
       setStoreName("browser");
     }
@@ -62,6 +81,11 @@ export default function App() {
       setReviews((prev) => ({ ...prev, [visitId]: saved }));
       setToast(`${visitId} · ${decision}로 기록했어요`);
     } catch (e) {
+      // 로그인·권한 문제는 브라우저에 남기지 않고 그대로 알려 줍니다.
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        setToast(e.message);
+        return;
+      }
       // 서버 저장 실패 시에도 브라우저에는 남겨 작업이 끊기지 않게 합니다.
       setReviews((prev) => ({
         ...prev,
@@ -74,7 +98,11 @@ export default function App() {
   const undo = useCallback(async (visitId: string) => {
     try {
       await api.deleteReview(visitId);
-    } catch {
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        setToast(e.message);
+        return;
+      }
       /* 서버에 없던 기록이어도 화면에서는 되돌립니다. */
     }
     setReviews((prev) => {
@@ -110,6 +138,7 @@ export default function App() {
         <div className="topbar-meta">
           {summary && <span>{summary.period}</span>}
           <span className="pill pill-muted">가상 데이터</span>
+          <AuthBar email={userEmail} />
         </div>
       </header>
 
@@ -145,10 +174,10 @@ export default function App() {
               <Overview summary={summary} pendingHigh={pendingHigh} reviewed={Object.keys(reviews).length} onGo={setTab} />
             )}
             {tab === "high" && (
-              <ReviewQueue visits={highVisits} reviews={reviews} onDecide={decide} onUndo={undo} onOpen={setSelected} />
+              <ReviewQueue visits={highVisits} reviews={reviews} onDecide={decide} onUndo={undo} onOpen={setSelected} authEnabled={authEnabled} userEmail={userEmail} />
             )}
             {tab === "medium" && (
-              <ReviewQueue visits={mediumVisits} reviews={reviews} onDecide={decide} onUndo={undo} onOpen={setSelected} tone="medium" />
+              <ReviewQueue visits={mediumVisits} reviews={reviews} onDecide={decide} onUndo={undo} onOpen={setSelected} tone="medium" authEnabled={authEnabled} userEmail={userEmail} />
             )}
             {tab === "all" && <VisitTable visits={visits} reviews={reviews} zones={summary.zones.map((z) => z.zone)} onOpen={setSelected} />}
             {tab === "rules" && <RulesPanel rules={rules} summary={summary} storeName={storeName} />}

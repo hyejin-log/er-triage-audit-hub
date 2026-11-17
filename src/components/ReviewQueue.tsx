@@ -11,6 +11,8 @@ interface Props {
   onUndo: (id: string) => Promise<void>;
   onOpen: (v: Visit) => void;
   tone?: "high" | "medium";
+  authEnabled: boolean;
+  userEmail: string | null;
 }
 
 const DECISIONS: { value: Decision; hint: string }[] = [
@@ -19,8 +21,10 @@ const DECISIONS: { value: Decision; hint: string }[] = [
   { value: "소명 요청", hint: "담당 부서에 설명 요청" },
 ];
 
-export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen, tone = "high" }: Props) {
-  const [reviewer, setReviewer] = useState<string>(() => safeStorage("er-audit:reviewer", ""));
+export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen, tone = "high", authEnabled, userEmail }: Props) {
+  const [typedReviewer, setReviewer] = useState<string>(() => safeStorage("er-audit:reviewer", ""));
+  // [개발 > 인증] 로그인이 켜져 있으면 로그인 이메일이 검토자입니다.
+  const reviewer = authEnabled ? userEmail ?? "" : typedReviewer;
   const pending = visits.filter((v) => !reviews[v.visit_id]);
   const done = visits.filter((v) => reviews[v.visit_id]);
 
@@ -50,15 +54,23 @@ export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen,
             {" "}미결 {pending.length}건 · 완료 {done.length}건
           </p>
         </div>
-        <label className="field reviewer">
-          <span>검토자 이름</span>
-          <input value={reviewer} maxLength={40} placeholder="예: QI 간호사 김OO" onChange={(e) => updateReviewer(e.target.value)} />
-        </label>
+        {authEnabled ? (
+          <div className={`reviewer-status ${userEmail ? "" : "is-off"}`}>
+            <span className="muted small">검토자</span>
+            <b>{userEmail ?? "로그인이 필요해요"}</b>
+            {!userEmail && <span className="muted small">오른쪽 위 ‘담당자 로그인’으로 로그인하면 결정을 기록할 수 있어요.</span>}
+          </div>
+        ) : (
+          <label className="field reviewer">
+            <span>검토자 이름</span>
+            <input value={typedReviewer} maxLength={40} placeholder="예: QI 간호사 김OO" onChange={(e) => updateReviewer(e.target.value)} />
+          </label>
+        )}
       </div>
 
       <div className="cards">
         {pending.map((v) => (
-          <RiskCard key={v.visit_id} visit={v} reviewer={reviewer} onDecide={onDecide} onOpen={onOpen} tone={tone} />
+          <RiskCard key={v.visit_id} visit={v} reviewer={reviewer} authEnabled={authEnabled} onDecide={onDecide} onOpen={onOpen} tone={tone} />
         ))}
       </div>
 
@@ -88,12 +100,14 @@ export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen,
 function RiskCard({
   visit,
   reviewer,
+  authEnabled,
   onDecide,
   onOpen,
   tone,
 }: {
   visit: Visit;
   reviewer: string;
+  authEnabled: boolean;
   onDecide: Props["onDecide"];
   onOpen: (v: Visit) => void;
   tone: "high" | "medium";
@@ -122,7 +136,8 @@ function RiskCard({
 
   const submit = async () => {
     if (!decision) return setFormError("결정을 골라 주세요.");
-    if (!reviewer.trim()) return setFormError("위쪽에 검토자 이름을 적어 주세요.");
+    if (!reviewer.trim())
+      return setFormError(authEnabled ? "먼저 오른쪽 위 ‘담당자 로그인’으로 로그인해 주세요." : "위쪽에 검토자 이름을 적어 주세요.");
     if (decision !== "적정 확인" && !note.trim()) return setFormError("재분류·소명 요청은 메모가 필요해요.");
     setFormError(null);
     setSaving(true);

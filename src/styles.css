@@ -314,3 +314,20 @@ p { margin: 0; }
   .kpi-value { font-size: 26px; }
   .reviewer { min-width: 0; width: 100%; }
 }
+
+/* [개발 > 인증] 로그인 */
+.auth-wrap { position: relative; }
+.auth-bar { display: flex; align-items: center; gap: 6px; }
+.auth-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-text); font-weight: 600; }
+.auth-pop {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 300px; z-index: 25;
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 16px; box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
+}
+.stack-sm { display: flex; flex-direction: column; gap: 10px; }
+.reviewer-status { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-surface); max-width: 320px; }
+.reviewer-status.is-off { border-color: var(--c-warn); background: var(--c-warn-soft); }
+@media (max-width: 560px) {
+  .auth-email { max-width: 110px; }
+  .auth-pop { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; }
+}

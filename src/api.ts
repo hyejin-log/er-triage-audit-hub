@@ -1,14 +1,28 @@
 // [개발 > 프론트엔드] API 클라이언트 — 오류는 사용자가 읽을 수 있는 문장으로 바꿔서 던집니다.
 import type { Decision, Rationale, Review, Rule, Summary, Visit } from "./types";
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, public status = 0) {
+    super(message);
+  }
+}
+
+// [개발 > 인증] 로그인 토큰 — App 이 Supabase 세션이 바뀔 때마다 갱신합니다.
+let authToken: string | null = null;
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
       ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...(init?.headers ?? {}),
+      },
     });
   } catch {
     throw new ApiError("서버에 연결하지 못했어요. API 서버가 켜져 있는지 확인해 주세요.");
@@ -22,7 +36,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* 본문이 JSON이 아니면 기본 문구를 씁니다. */
     }
-    throw new ApiError(detail);
+    throw new ApiError(detail, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

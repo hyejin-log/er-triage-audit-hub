@@ -14,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend import store  # noqa: E402
+from backend.auth import Auditor, auth_enabled, require_auditor  # noqa: E402
 from backend.ai import ai_rationale  # noqa: E402
 from backend.audit import run_audit  # noqa: E402
 
@@ -37,7 +38,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5180", "http://127.0.0.1:5180"],
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -69,7 +70,7 @@ async def runtime_error_handler(_, exc: RuntimeError):
 @app.get("/api/health")
 def health():
     db = store.ping()
-    return {"ok": db.get("db_ok") is not False, "visits": len(audit_result()["visits"]), **db}
+    return {"ok": db.get("db_ok") is not False, "visits": len(audit_result()["visits"]), "auth": auth_enabled(), **db}
 
 
 @app.get("/api/summary")
@@ -119,7 +120,8 @@ class ReviewIn(BaseModel):
     visit_id: str = Field(min_length=3, max_length=30)
     decision: Literal["적정 확인", "재분류 확정", "소명 요청"]
     note: str = Field(default="", max_length=500)
-    reviewer: str = Field(min_length=1, max_length=40)
+    # 로그인(Supabase)이 켜져 있으면 무시하고 로그인 이메일을 씁니다.
+    reviewer: str = Field(default="", max_length=80)
 
 
 @app.get("/api/reviews")
@@ -131,16 +133,19 @@ def get_reviews():
 
 
 @app.post("/api/reviews", status_code=201)
-def post_review(body: ReviewIn):
+def post_review(body: ReviewIn, auditor: Auditor | None = Depends(require_auditor)):
     find_visit(body.visit_id)  # 존재 확인
+    reviewer = auditor.email if auditor else body.reviewer.strip()
+    if not reviewer:
+        raise HTTPException(status_code=422, detail="검토자 이름을 입력해 주세요.")
     try:
-        return store.save_review(body.visit_id, body.decision, body.note.strip(), body.reviewer.strip())
+        return store.save_review(body.visit_id, body.decision, body.note.strip(), reviewer)
     except store.StoreError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.delete("/api/reviews/{visit_id}", status_code=204)
-def remove_review(visit_id: str):
+def remove_review(visit_id: str, _auditor: Auditor | None = Depends(require_auditor)):
     try:
         store.delete_review(visit_id)
     except store.StoreError as exc:
