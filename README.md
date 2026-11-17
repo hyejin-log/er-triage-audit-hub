@@ -12,6 +12,7 @@
 | 전결 한도 | 구역 병상 수 (과밀화 100%) |
 | 지급 보류 · 확인 필요 | High Risk 이상 징후 카드 |
 | AI 근거 제안 · 담당자 확정 | 동일 (적정 확인 / 재분류 확정 / 소명 요청) |
+| 거래처 소명 요청중 | 담당 부서 소명 → QI팀 최종 확정 |
 | 정산 금액이 어디로 가는지 | 환자가 어디로 가는지 (퇴실 경로 · 체류 분포) |
 
 > ⚠️ 모든 데이터는 `scripts/generate_data.py`가 만든 **가상 데이터**입니다. 실제 환자 정보는 없습니다.
@@ -24,7 +25,7 @@
 - **프론트엔드**: React 18 + Vite 6 + TypeScript (반응형, 다크 모드)
 - **백엔드**: Python FastAPI + pydantic v2 (Vercel Python 서버리스 함수)
 - **DB**: Postgres(Neon) + psycopg 3 — 담당자 결정과 이력 저장
-- **인증**: Supabase Auth 이메일 매직 링크 — 로그인한 담당자만 결정 기록, 검토자 = 로그인 이메일
+- **인증**: 부서별 원클릭 데모 로그인(서버 서명 토큰) + Supabase Auth 이메일 매직 링크
 - **AI(선택)**: Anthropic Claude (`claude-opus-5-5`) — 키가 없으면 규칙 엔진 근거로 대체
 - **내보내기**: openpyxl 엑셀
 - **배포**: Vercel (GitHub 연동)
@@ -43,13 +44,33 @@
 
 규칙은 `backend/audit.py`의 `RULES`에 있습니다.
 
+## 부서와 소명 흐름
+
+| 부서 | 역할 | 담당 감사 신호 |
+|---|---|---|
+| QI팀 | 감사·최종 판정 | 모든 건 판정, 소명 요청, 최종 확정 |
+| 응급간호팀 | KTAS 분류 | 근거 없는 하향 재분류, 하향 재분류(근거 있음), 과소분류 의심 |
+| 응급의학과 | 진료 | 진료 목표 시간 미달, 72시간 내 재내원 |
+| 병상관리팀 | 입원·병상 | 24시간 초과 체류, 병상 배정 6시간 초과 |
+
+```
+QI팀 결정 ─ 적정 확인 / 재분류 확정 ─────────────────▶ 종결
+          └ 소명 요청 → 담당 부서 자동 배정 ─▶ 부서 소명 제출 ─▶ QI팀 최종 확정 ─▶ 종결
+```
+
+- 로그인 창의 **부서로 체험하기** 버튼으로 메일 없이 부서별 데모 계정에 들어갑니다(12시간 유효, 서버가 서명한 토큰).
+- 이메일(매직 링크) 계정은 QI팀 권한입니다. 부서를 바꾸려면 `DEPT_ASSIGNMENTS=메일=NURSING,…` 을 설정하세요.
+- QI팀은 소명 현황 탭에서 **데모 데이터 초기화**로 모든 결정·소명을 비울 수 있습니다.
+
 ## 폴더 구조
 
 ```
 api/index.py          FastAPI 앱 (/api/*)
 backend/audit.py      감사 규칙 엔진, 구역 과밀화 계산
 backend/ai.py         AI 근거 제안 (Claude → 실패 시 규칙 엔진)
-backend/store.py      담당자 결정 저장 (Postgres 또는 메모리)
+backend/store.py      결정·소명 저장 (Postgres 또는 메모리)
+backend/auth.py       데모 토큰 / Supabase 토큰 확인, 부서 권한
+backend/departments.py 부서 목록과 감사 규칙별 담당 부서
 data/ed_visits.json   가상 내원 데이터 160건
 db/schema.sql         reviews, review_log 테이블
 scripts/generate_data.py  가상 데이터 생성기 (시드 고정)
@@ -85,8 +106,12 @@ npm run dev
 | GET | `/api/visits?status=high&zone=경증구역&q=흉통` | 내원 목록 |
 | GET | `/api/visits/{id}` | 내원 상세 |
 | POST | `/api/visits/{id}/ai-review` | AI 근거 제안 |
-| GET/POST | `/api/reviews` | 담당자 결정 조회/저장 |
-| DELETE | `/api/reviews/{id}` | 결정 되돌리기 |
+| POST | `/api/demo-login` | 부서별 데모 로그인 `{dept}` |
+| GET | `/api/me` | 로그인 사용자·부서 |
+| GET/POST | `/api/reviews` | 결정 조회 / QI팀 결정 |
+| POST | `/api/reviews/{id}/response` | 담당 부서 소명 제출 |
+| DELETE | `/api/reviews/{id}` | 결정 되돌리기 (QI팀) |
+| POST | `/api/demo/reset` | 데모 데이터 초기화 (QI팀) |
 | GET | `/api/export.xlsx` | 감사 결과 엑셀 |
 
 ## 배포 (GitHub → Vercel)

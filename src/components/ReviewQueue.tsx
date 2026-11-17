@@ -1,37 +1,32 @@
-// [개발 > 프론트엔드] 확인 필요 / 주의 관찰 큐 — High Risk 이상 징후 카드 + AI 근거 제안 + 담당자 확정
+// [개발 > 프론트엔드] 확인 필요 / 주의 관찰 큐 — High Risk 카드 + AI 근거 제안 + QI팀 결정
+// 소명이 제출된 건은 다시 이 큐로 올라와 QI팀이 최종 확정합니다.
 import { useState } from "react";
 import { api, ApiError } from "../api";
-import type { Decision, Rationale, Review, Visit } from "../types";
-import { clock, duration, safeStorage, saveStorage } from "../format";
+import type { Decision, Rationale, Review, User, Visit } from "../types";
+import { clock, deptName, duration, stamp } from "../format";
 
 interface Props {
   visits: Visit[];
   reviews: Record<string, Review>;
-  onDecide: (id: string, d: Decision, note: string, reviewer: string) => Promise<void>;
-  onUndo: (id: string) => Promise<void>;
+  user: User | null;
+  onDecide: (id: string, d: Decision, note: string) => Promise<boolean>;
+  onUndo: (id: string) => Promise<boolean>;
   onOpen: (v: Visit) => void;
   tone?: "high" | "medium";
-  authEnabled: boolean;
-  userEmail: string | null;
 }
 
-const DECISIONS: { value: Decision; hint: string }[] = [
+const FIRST_DECISIONS: { value: Decision; hint: string }[] = [
   { value: "적정 확인", hint: "기록상 문제가 없음" },
   { value: "재분류 확정", hint: "분류·조치가 부적절했음" },
   { value: "소명 요청", hint: "담당 부서에 설명 요청" },
 ];
+const FINAL_DECISIONS = FIRST_DECISIONS.slice(0, 2);
 
-export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen, tone = "high", authEnabled, userEmail }: Props) {
-  const [typedReviewer, setReviewer] = useState<string>(() => safeStorage("er-audit:reviewer", ""));
-  // [개발 > 인증] 로그인이 켜져 있으면 로그인 이메일이 검토자입니다.
-  const reviewer = authEnabled ? userEmail ?? "" : typedReviewer;
-  const pending = visits.filter((v) => !reviews[v.visit_id]);
-  const done = visits.filter((v) => reviews[v.visit_id]);
-
-  const updateReviewer = (value: string) => {
-    setReviewer(value);
-    saveStorage("er-audit:reviewer", value);
-  };
+export default function ReviewQueue({ visits, reviews, user, onDecide, onUndo, onOpen, tone = "high" }: Props) {
+  const isQi = user?.dept === "QI";
+  const open = visits.filter((v) => !reviews[v.visit_id] || reviews[v.visit_id].stage === "answered");
+  const waiting = visits.filter((v) => reviews[v.visit_id]?.stage === "requested");
+  const closed = visits.filter((v) => reviews[v.visit_id]?.stage === "closed");
 
   if (visits.length === 0) {
     return (
@@ -51,42 +46,63 @@ export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen,
             {tone === "high"
               ? "24시간 초과 체류, 근거 없는 하향 재분류, 활력징후 대비 과소분류, 72시간 내 재내원 건입니다."
               : "KTAS 목표 시간 내 진료 미달과 입원 결정 후 병상 대기 6시간 초과 건입니다."}
-            {" "}미결 {pending.length}건 · 완료 {done.length}건
+            {" "}QI 판정 대기 {open.length}건 · 소명 요청중 {waiting.length}건 · 종결 {closed.length}건
           </p>
         </div>
-        {authEnabled ? (
-          <div className={`reviewer-status ${userEmail ? "" : "is-off"}`}>
-            <span className="muted small">검토자</span>
-            <b>{userEmail ?? "로그인이 필요해요"}</b>
-            {!userEmail && <span className="muted small">오른쪽 위 ‘담당자 로그인’으로 로그인하면 결정을 기록할 수 있어요.</span>}
+        {!isQi && (
+          <div className="role-note">
+            {user
+              ? <><b>{user.dept_name}</b>은(는) 보기만 할 수 있어요. 판정은 QI팀이, 소명은 ‘{user.dept_name} 소명’ 탭에서 합니다.</>
+              : <>오른쪽 위 <b>로그인</b>에서 <b>QI팀</b>으로 들어가면 결정을 기록할 수 있어요.</>}
           </div>
-        ) : (
-          <label className="field reviewer">
-            <span>검토자 이름</span>
-            <input value={typedReviewer} maxLength={40} placeholder="예: QI 간호사 김OO" onChange={(e) => updateReviewer(e.target.value)} />
-          </label>
         )}
       </div>
 
-      <div className="cards">
-        {pending.map((v) => (
-          <RiskCard key={v.visit_id} visit={v} reviewer={reviewer} authEnabled={authEnabled} onDecide={onDecide} onOpen={onOpen} tone={tone} />
-        ))}
-      </div>
+      {open.length === 0 ? (
+        <div className="empty card"><strong>QI팀이 판정할 건이 없어요</strong><p className="muted">소명 요청중인 건은 부서 답변이 오면 다시 여기에 올라와요.</p></div>
+      ) : (
+        <div className="cards">
+          {open.map((v) => (
+            <RiskCard key={v.visit_id} visit={v} review={reviews[v.visit_id]} canDecide={isQi} onDecide={onDecide} onOpen={onOpen} tone={tone} />
+          ))}
+        </div>
+      )}
 
-      {done.length > 0 && (
+      {waiting.length > 0 && (
         <section className="card">
-          <h2>결정 완료</h2>
+          <h2>소명 요청중</h2>
           <ul className="done-list">
-            {done.map((v) => {
+            {waiting.map((v) => {
+              const r = reviews[v.visit_id];
+              return (
+                <li key={v.visit_id}>
+                  <button className="link" onClick={() => onOpen(v)}>{v.visit_id}</button>
+                  <span className="muted">{v.flags[0]?.title}</span>
+                  <span className={`pill dept-pill-sm dept-${r.assigned_dept}`}>{deptName(r.assigned_dept)} 답변 대기</span>
+                  <span className="muted small">{r.note}</span>
+                  {isQi && <button className="btn btn-ghost btn-sm" onClick={() => onUndo(v.visit_id)}>요청 취소</button>}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {closed.length > 0 && (
+        <section className="card">
+          <h2>종결</h2>
+          <ul className="done-list">
+            {closed.map((v) => {
               const r = reviews[v.visit_id];
               return (
                 <li key={v.visit_id}>
                   <button className="link" onClick={() => onOpen(v)}>{v.visit_id}</button>
                   <span className="muted">{v.flags[0]?.title}</span>
                   <span className={`pill decision-${r.decision.replace(" ", "")}`}>{r.decision}</span>
-                  <span className="muted small">{r.reviewer}{r.note ? ` · ${r.note}` : ""}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => onUndo(v.visit_id)}>되돌리기</button>
+                  <span className="muted small">
+                    {r.reviewer}{r.response ? ` · ${deptName(r.assigned_dept)} 소명 반영` : ""}{r.note ? ` · ${r.note}` : ""}
+                  </span>
+                  {isQi && <button className="btn btn-ghost btn-sm" onClick={() => onUndo(v.visit_id)}>되돌리기</button>}
                 </li>
               );
             })}
@@ -99,19 +115,21 @@ export default function ReviewQueue({ visits, reviews, onDecide, onUndo, onOpen,
 
 function RiskCard({
   visit,
-  reviewer,
-  authEnabled,
+  review,
+  canDecide,
   onDecide,
   onOpen,
   tone,
 }: {
   visit: Visit;
-  reviewer: string;
-  authEnabled: boolean;
+  review?: Review;
+  canDecide: boolean;
   onDecide: Props["onDecide"];
   onOpen: (v: Visit) => void;
   tone: "high" | "medium";
 }) {
+  const answered = review?.stage === "answered";
+  const options = answered ? FINAL_DECISIONS : FIRST_DECISIONS;
   const [rationale, setRationale] = useState<Rationale | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -126,7 +144,7 @@ function RiskCard({
     try {
       const r = await api.aiReview(visit.visit_id);
       setRationale(r);
-      setDecision((d) => d ?? r.suggested_action);
+      if (!answered || r.suggested_action !== "소명 요청") setDecision((d) => d ?? r.suggested_action);
     } catch (e) {
       setAiError(e instanceof ApiError ? e.message : "근거를 불러오지 못했어요.");
     } finally {
@@ -136,23 +154,22 @@ function RiskCard({
 
   const submit = async () => {
     if (!decision) return setFormError("결정을 골라 주세요.");
-    if (!reviewer.trim())
-      return setFormError(authEnabled ? "먼저 오른쪽 위 ‘담당자 로그인’으로 로그인해 주세요." : "위쪽에 검토자 이름을 적어 주세요.");
     if (decision !== "적정 확인" && !note.trim()) return setFormError("재분류·소명 요청은 메모가 필요해요.");
     setFormError(null);
     setSaving(true);
-    await onDecide(visit.visit_id, decision, note.trim(), reviewer.trim());
+    await onDecide(visit.visit_id, decision, note.trim());
     setSaving(false);
   };
 
   const m = visit.metrics;
   return (
-    <article className={`risk-card ${tone === "high" ? "is-high" : "is-medium"}`}>
+    <article className={`risk-card ${tone === "high" ? "is-high" : "is-medium"} ${answered ? "is-answered" : ""}`}>
       <header className="risk-head">
         <div>
           <span className={`pill ${tone === "high" ? "pill-danger" : "pill-warn"}`}>
             {tone === "high" ? "High Risk" : "주의"}
           </span>
+          {answered && <span className="pill pill-accent">소명 제출 · 최종 확정 대기</span>}
           <h3>{visit.flags[0]?.title}</h3>
         </div>
         <button className="link" onClick={() => onOpen(visit)}>{visit.visit_id} 타임라인 →</button>
@@ -161,7 +178,7 @@ function RiskCard({
       <dl className="facts">
         <div><dt>환자</dt><dd>{visit.age}세 {visit.sex === "M" ? "남" : "여"} · {visit.chief_complaint}</dd></div>
         <div><dt>KTAS</dt><dd>{visit.ktas_initial === visit.ktas_final ? visit.ktas_final : `${visit.ktas_initial} → ${visit.ktas_final}`}</dd></div>
-        <div><dt>구역</dt><dd>{visit.zone}</dd></div>
+        <div><dt>담당 부서</dt><dd>{deptName(visit.owner_dept)}</dd></div>
         <div><dt>내원</dt><dd>{clock(visit.times.arrival)}</dd></div>
         <div><dt>총 체류</dt><dd className={m.los_min && m.los_min >= 1440 ? "text-danger strong" : ""}>{duration(m.los_min)}</dd></div>
         <div><dt>진료 대기</dt><dd>{duration(m.door_to_doc_min)}</dd></div>
@@ -175,6 +192,17 @@ function RiskCard({
           </li>
         ))}
       </ul>
+
+      {answered && review && (
+        <div className="response-box">
+          <div className="response-meta">
+            <span className={`pill dept-pill-sm dept-${review.assigned_dept}`}>{deptName(review.assigned_dept)} 소명</span>
+            <span className="muted small">{review.responder} · {stamp(review.responded_at)}</span>
+          </div>
+          <p className="muted small">QI 요청: {review.note}</p>
+          <p>{review.response}</p>
+        </div>
+      )}
 
       <div className="ai-box">
         {!rationale ? (
@@ -199,31 +227,44 @@ function RiskCard({
         {aiError && <p className="text-danger small" role="alert">{aiError}</p>}
       </div>
 
-      <fieldset className="decide">
-        <legend>담당자 결정</legend>
-        <div className="seg">
-          {DECISIONS.map((d) => (
-            <button
-              key={d.value}
-              type="button"
-              className={`seg-btn ${decision === d.value ? "is-on" : ""}`}
-              aria-pressed={decision === d.value}
-              title={d.hint}
-              onClick={() => { setDecision(d.value); setFormError(null); }}
-            >
-              {d.value}
-            </button>
-          ))}
-        </div>
-        <label className="field">
-          <span>메모 {decision && decision !== "적정 확인" ? "(필수)" : "(선택)"}</span>
-          <textarea rows={2} maxLength={500} value={note} onChange={(e) => { setNote(e.target.value); setFormError(null); }} placeholder="확인한 기록, 요청할 내용" />
-        </label>
-        {formError && <p className="text-danger small" role="alert">{formError}</p>}
-        <button className="btn btn-primary" onClick={submit} disabled={saving}>
-          {saving ? "저장 중…" : decision ? `${decision}로 기록하기` : "결정 기록하기"}
-        </button>
-      </fieldset>
+      {canDecide ? (
+        <fieldset className="decide">
+          <legend>{answered ? "QI팀 최종 확정" : "QI팀 결정"}</legend>
+          <div className="seg" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+            {options.map((d) => (
+              <button
+                key={d.value}
+                type="button"
+                className={`seg-btn ${decision === d.value ? "is-on" : ""}`}
+                aria-pressed={decision === d.value}
+                title={d.hint}
+                onClick={() => { setDecision(d.value); setFormError(null); }}
+              >
+                {d.value}
+              </button>
+            ))}
+          </div>
+          {decision === "소명 요청" && (
+            <p className="muted small">→ <b>{deptName(visit.owner_dept)}</b>에 소명을 요청해요.</p>
+          )}
+          <label className="field">
+            <span>메모 {decision && decision !== "적정 확인" ? "(필수)" : "(선택)"}</span>
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={note}
+              onChange={(e) => { setNote(e.target.value); setFormError(null); }}
+              placeholder={decision === "소명 요청" ? "부서에 요청할 내용" : "확인한 기록, 판단 근거"}
+            />
+          </label>
+          {formError && <p className="text-danger small" role="alert">{formError}</p>}
+          <button className="btn btn-primary" onClick={submit} disabled={saving}>
+            {saving ? "저장 중…" : decision === "소명 요청" ? `${deptName(visit.owner_dept)}에 소명 요청하기` : decision ? `${decision}로 기록하기` : "결정 기록하기"}
+          </button>
+        </fieldset>
+      ) : (
+        <p className="muted small locked">QI팀으로 로그인하면 결정할 수 있어요.</p>
+      )}
     </article>
   );
 }

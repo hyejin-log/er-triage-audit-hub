@@ -24,7 +24,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend import store  # noqa: E402
-from backend.auth import Auditor, auth_enabled, require_auditor  # noqa: E402
+from backend.auth import User, email_login_enabled, issue_demo_token, require_qi, require_user  # noqa: E402
+from backend.departments import DEPARTMENTS, RULE_DEPT, dept_name, owner_dept  # noqa: E402
 from backend.ai import ai_rationale  # noqa: E402
 from backend.audit import run_audit  # noqa: E402
 
@@ -50,7 +51,10 @@ def audit_result() -> dict[str, Any]:
         raise RuntimeError("data/ed_visits.json 이 없습니다. scripts/generate_data.py 를 먼저 실행하세요.") from exc
     except json.JSONDecodeError as exc:
         raise RuntimeError("data/ed_visits.json 형식이 올바르지 않습니다.") from exc
-    return run_audit(dataset)
+    result = run_audit(dataset)
+    for v in result["visits"]:
+        v["owner_dept"] = owner_dept(v)  # 소명 요청 시 배정될 부서
+    return result
 
 
 def find_visit(visit_id: str) -> dict[str, Any]:
@@ -70,7 +74,7 @@ async def runtime_error_handler(_, exc: RuntimeError):
 @app.get("/api/health")
 def health():
     db = store.ping()
-    return {"ok": db.get("db_ok") is not False, "visits": len(audit_result()["visits"]), "auth": auth_enabled(), **db}
+    return {"ok": db.get("db_ok") is not False, "visits": len(audit_result()["visits"]), "email_login": email_login_enabled(), "demo_login": True, **db}
 
 
 @app.get("/api/summary")
@@ -115,41 +119,85 @@ def visit_ai_review(visit_id: str):
     return ai_rationale(find_visit(visit_id))
 
 
-# ── 담당자 결정 ───────────────────────────────────────────────────────
+# ── 로그인 ─────────────────────────────────────────────────────────
+class DemoLoginIn(BaseModel):
+    dept: Literal["QI", "NURSING", "EM", "BED"]
+
+
+@app.post("/api/demo-login")
+def demo_login(body: DemoLoginIn):
+    """[개발 > 인증] 부서별 원클릭 데모 로그인 (메일·비밀번호 없음)."""
+    token, user = issue_demo_token(body.dept)
+    return {"token": token, "user": user.to_dict()}
+
+
+@app.get("/api/me")
+def me(user: User = Depends(require_user)):
+    return user.to_dict()
+
+
+@app.get("/api/departments")
+def departments():
+    return {"departments": DEPARTMENTS, "rule_dept": RULE_DEPT}
+
+
+# ── QI팀 결정 → 부서 소명 → QI팀 확정 ──────────────────────────────────
 class ReviewIn(BaseModel):
     visit_id: str = Field(min_length=3, max_length=30)
     decision: Literal["적정 확인", "재분류 확정", "소명 요청"]
     note: str = Field(default="", max_length=500)
-    # 로그인(Supabase)이 켜져 있으면 무시하고 로그인 이메일을 씁니다.
-    reviewer: str = Field(default="", max_length=80)
+
+
+class ResponseIn(BaseModel):
+    response: str = Field(min_length=5, max_length=1000)
+
+
+def _store_call(fn, *args):
+    try:
+        return fn(*args)
+    except store.StageConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except store.StoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/api/reviews")
 def get_reviews():
-    try:
-        return {"store": store.backend_name(), "items": store.list_reviews()}
-    except store.StoreError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"store": store.backend_name(), "items": _store_call(store.list_reviews)}
 
 
 @app.post("/api/reviews", status_code=201)
-def post_review(body: ReviewIn, auditor: Auditor | None = Depends(require_auditor)):
-    find_visit(body.visit_id)  # 존재 확인
-    reviewer = auditor.email if auditor else body.reviewer.strip()
-    if not reviewer:
-        raise HTTPException(status_code=422, detail="검토자 이름을 입력해 주세요.")
-    try:
-        return store.save_review(body.visit_id, body.decision, body.note.strip(), reviewer)
-    except store.StoreError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+def post_review(body: ReviewIn, user: User = Depends(require_qi)):
+    visit = find_visit(body.visit_id)
+    note = body.note.strip()
+    if body.decision != "적정 확인" and not note:
+        raise HTTPException(status_code=422, detail="재분류·소명 요청은 메모가 필요해요.")
+    dept = visit.get("owner_dept") if body.decision == "소명 요청" else None
+    if body.decision == "소명 요청" and not dept:
+        raise HTTPException(status_code=422, detail="감사 신호가 없는 건은 소명을 요청할 수 없어요.")
+    reviewer = f"{user.name} ({user.dept_name})" if user.kind == "email" else user.name
+    return _store_call(store.save_decision, body.visit_id, body.decision, note, reviewer, dept)
+
+
+@app.post("/api/reviews/{visit_id}/response", status_code=201)
+def post_response(visit_id: str, body: ResponseIn, user: User = Depends(require_user)):
+    """담당 부서가 소명을 제출합니다. 배정된 부서만 할 수 있습니다."""
+    find_visit(visit_id)
+    if user.dept == "QI":
+        raise HTTPException(status_code=403, detail="소명은 배정된 부서가 제출해요. QI팀은 소명을 읽고 확정합니다.")
+    responder = f"{user.name} ({user.dept_name})" if user.kind == "email" else user.name
+    return _store_call(store.save_response, visit_id, body.response.strip(), responder, user.dept)
 
 
 @app.delete("/api/reviews/{visit_id}", status_code=204)
-def remove_review(visit_id: str, _auditor: Auditor | None = Depends(require_auditor)):
-    try:
-        store.delete_review(visit_id)
-    except store.StoreError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+def remove_review(visit_id: str, _user: User = Depends(require_qi)):
+    _store_call(store.delete_review, visit_id)
+
+
+@app.post("/api/demo/reset")
+def demo_reset(user: User = Depends(require_qi)):
+    """[데모] 모든 결정·소명을 비워 처음 상태로 되돌립니다. (QI팀만)"""
+    return {"deleted": _store_call(store.reset_reviews, user.name)}
 
 
 # ── 내보내기 (이음 프로젝트와 같은 openpyxl 기반) ──────────────────────
@@ -167,19 +215,21 @@ def export_xlsx():
     ws = wb.active
     ws.title = "감사 결과"
     header = ["내원번호", "상태", "구역", "KTAS 최초", "KTAS 최종", "주호소", "체류(분)",
-              "진료대기(분)", "병상대기(분)", "퇴실", "감사 신호", "담당자 결정", "메모"]
+              "진료대기(분)", "병상대기(분)", "퇴실", "감사 신호", "QI 결정", "진행 단계", "담당 부서", "QI 메모", "부서 소명"]
     ws.append(header)
     for cell in ws[1]:
         cell.font = Font(bold=True)
     red = PatternFill("solid", fgColor="FDE2E1")
     label = {"high": "확인 필요", "medium": "주의", "normal": "정상"}
+    stage_label = {"requested": "소명 요청중", "answered": "소명 제출", "closed": "종결"}
     for v in audit_result()["visits"]:
         r = reviews.get(v["visit_id"], {})
         ws.append([
             v["visit_id"], label[v["status"]], v["zone"], v["ktas_initial"], v["ktas_final"],
             v["chief_complaint"], v["metrics"]["los_min"], v["metrics"]["door_to_doc_min"],
             v["metrics"]["boarding_min"], v["disposition"],
-            " / ".join(f["title"] for f in v["flags"]), r.get("decision", ""), r.get("note", ""),
+            " / ".join(f["title"] for f in v["flags"]), r.get("decision", ""), stage_label.get(r.get("stage") or "", "미결" if v["flags"] else ""),
+            dept_name(r.get("assigned_dept")) if r.get("assigned_dept") else "", r.get("note", ""), r.get("response") or "",
         ])
         if v["status"] == "high":
             for cell in ws[ws.max_row]:

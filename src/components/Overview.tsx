@@ -1,12 +1,13 @@
 // [개발 > 프론트엔드] 한눈에 보기 — 요약 / 구역 합산 vs 병상 한도 / 환자 흐름 시각화
-import type { Summary } from "../types";
+import type { Review, Summary, Visit } from "../types";
 import type { Tab } from "../App";
-import { clock, duration } from "../format";
+import { clock, DEPTS, duration } from "../format";
 
 interface Props {
   summary: Summary;
+  visits: Visit[];
+  reviews: Record<string, Review>;
   pendingHigh: number;
-  reviewed: number;
   onGo: (t: Tab) => void;
 }
 
@@ -17,7 +18,12 @@ const DISPO_COLORS: Record<string, string> = {
   전원: "var(--c-muted-strong)",
 };
 
-export default function Overview({ summary, pendingHigh, reviewed, onGo }: Props) {
+export default function Overview({ summary, visits, reviews, pendingHigh, onGo }: Props) {
+  const all = Object.values(reviews);
+  const requested = all.filter((r) => r.stage === "requested");
+  const answered = all.filter((r) => r.stage === "answered");
+  const closed = all.filter((r) => r.stage === "closed");
+  const flagged = visits.filter((v) => v.flags.length > 0);
   const worst = summary.zones[0];
   const dispoTotal = Object.values(summary.disposition).reduce((a, b) => a + b, 0) || 1;
   const losTotal = Object.values(summary.los_buckets).reduce((a, b) => a + b, 0) || 1;
@@ -47,7 +53,7 @@ export default function Overview({ summary, pendingHigh, reviewed, onGo }: Props
         <article className="kpi kpi-danger">
           <span className="kpi-label">확인 필요</span>
           <strong className="kpi-value">{summary.high}<small>건</small></strong>
-          <span className="kpi-foot">미결 {pendingHigh}건 · 결정 완료 {reviewed}건</span>
+          <span className="kpi-foot">QI 판정 대기 {pendingHigh}건 · 종결 {closed.length}건</span>
         </article>
         <article className="kpi kpi-warn">
           <span className="kpi-label">주의 관찰</span>
@@ -67,11 +73,37 @@ export default function Overview({ summary, pendingHigh, reviewed, onGo }: Props
       </section>
 
       <section className="card">
+        <div className="card-head">
+          <h2>부서별 소명 현황</h2>
+          <button className="link" onClick={() => onGo("explain")}>소명 현황 보기 →</button>
+        </div>
+        <div className="dept-strip">
+          {DEPTS.filter((d) => d.code !== "QI").map((d) => {
+            const mine = flagged.filter((v) => v.owner_dept === d.code);
+            const req = requested.filter((r) => r.assigned_dept === d.code);
+            const ans = answered.filter((r) => r.assigned_dept === d.code);
+            return (
+              <div key={d.code} className={`dept-strip-item dept-${d.code}`}>
+                <b>{d.name}</b>
+                <span className="muted small">담당 감사 신호 {mine.length}건</span>
+                <span className="small">
+                  {req.length ? <span className="text-warn">답변 대기 {req.length}</span> : <span className="muted">답변 대기 0</span>}
+                  {" · "}
+                  {ans.length ? <span className="text-accent">QI 확인 대기 {ans.length}</span> : <span className="muted">QI 확인 대기 0</span>}
+                </span>
+                {req.length > 0 && <span className="muted small mono">{req.map((r) => r.visit_id).join(", ")}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="card">
         <h2>이 화면이 하는 일</h2>
         <ol className="steps">
           <li><b>구역별 재실 합산</b><span>{worst.zone} 최대 {worst.peak}명 · 병상의 {worst.ratio}%</span></li>
           <li><b>승인 전 차단</b><span>High Risk {summary.high}건은 담당자 결정 전까지 보류</span></li>
-          <li><b>AI 제안 · 사람 확정</b><span>AI는 근거만 제시하고 결정은 담당자가 합니다</span></li>
+          <li><b>부서 소명 · QI 확정</b><span>소명 요청은 담당 부서로 배정, 답변 후 QI팀이 확정</span></li>
           <li><b>QI 보고 반영</b><span>결정 결과를 엑셀로 내보내 위원회에 보고</span></li>
         </ol>
       </section>

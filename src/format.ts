@@ -32,3 +32,26 @@ export function saveStorage(key: string, value: unknown): void {
     /* 사생활 보호 모드 등에서는 저장하지 않고 넘어갑니다. */
   }
 }
+
+// [설계 > 사용자 시나리오] 부서와 진행 단계 표시
+export const DEPTS = [
+  { code: "QI", name: "QI팀", role: "감사·최종 판정" },
+  { code: "NURSING", name: "응급간호팀", role: "KTAS 분류" },
+  { code: "EM", name: "응급의학과", role: "진료" },
+  { code: "BED", name: "병상관리팀", role: "입원·병상" },
+] as const;
+
+export function deptName(code: string | null | undefined): string {
+  return DEPTS.find((d) => d.code === code)?.name ?? "-";
+}
+
+export const STAGE_LABEL = { requested: "소명 요청중", answered: "소명 제출", closed: "종결" } as const;
+
+/** 서버 기록 시각(UTC ISO)을 브라우저 현지 시각 "M/D HH:MM" 으로 바꿉니다. */
+export function stamp(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}

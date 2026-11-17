@@ -1,12 +1,14 @@
 """
-[개발 > DB구축] 담당자 결정(리뷰) 저장소
+[개발 > DB구축] 감사 결정·소명 저장소
 
-- DATABASE_URL(Neon Postgres 등)이 있으면 reviews 테이블에 저장합니다.
-  Vercel의 Neon 연동이 넣어 주는 POSTGRES_URL 도 인식합니다.
-- 테이블은 첫 연결 때 자동으로 만듭니다(SCHEMA_SQL = db/schema.sql 과 같은 내용).
-  그래서 연결 문자열을 로컬로 옮겨 SQL을 직접 실행할 필요가 없습니다.
-- DB가 없으면 메모리에 저장합니다. 서버리스 환경에서는 재시작 시 사라지므로
-  프론트엔드도 브라우저에 사본을 남깁니다.
+흐름 (Rebate Lens의 '소명 요청중'과 같은 구조)
+    QI팀 결정 ── 적정 확인 / 재분류 확정 ─────────────▶ stage = closed
+             └─ 소명 요청 → 담당 부서 배정 ─▶ stage = requested
+                                   부서 소명 제출 ─▶ stage = answered
+                        QI팀 최종 확정(적정/재분류) ─▶ stage = closed
+
+- DATABASE_URL(Neon) 또는 POSTGRES_URL 이 있으면 Postgres, 없으면 메모리에 저장합니다.
+- 테이블·컬럼은 첫 연결 때 자동으로 만들고 늘립니다(ALTER … ADD COLUMN IF NOT EXISTS).
 """
 from __future__ import annotations
 
@@ -22,6 +24,11 @@ _memory: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
 _schema_ready = False
 
+COLUMNS = (
+    "visit_id", "decision", "note", "reviewer", "decided_at",
+    "stage", "assigned_dept", "response", "responder", "responded_at",
+)
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS reviews (
     visit_id    TEXT PRIMARY KEY,
@@ -30,6 +37,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     reviewer    TEXT NOT NULL,
     decided_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS stage TEXT NOT NULL DEFAULT 'closed';
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS assigned_dept TEXT;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response TEXT;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS responder TEXT;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS review_log (
     id          BIGSERIAL PRIMARY KEY,
     visit_id    TEXT NOT NULL,
@@ -38,8 +50,17 @@ CREATE TABLE IF NOT EXISTS review_log (
     reviewer    TEXT NOT NULL,
     logged_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE review_log ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'decision';
 CREATE INDEX IF NOT EXISTS idx_review_log_visit ON review_log (visit_id, logged_at DESC);
 """
+
+
+class StoreError(RuntimeError):
+    pass
+
+
+class StageConflict(RuntimeError):
+    """지금 단계에서 할 수 없는 작업(예: 요청되지 않은 건에 소명 제출)."""
 
 
 def _db_url() -> str | None:
@@ -54,7 +75,7 @@ def _connect():
     global _schema_ready
     import psycopg  # 지연 import: DB를 안 쓰면 설치하지 않아도 됩니다.
 
-    # Neon의 DATABASE_URL 은 PgBouncer(트랜잭션 풀링) 주소이므로 prepared statement 를 끕니다.
+    # Neon 의 DATABASE_URL 은 PgBouncer(트랜잭션 풀링) 주소이므로 prepared statement 를 끕니다.
     conn = psycopg.connect(_db_url(), connect_timeout=8, prepare_threshold=None)
     if not _schema_ready:
         with _lock:
@@ -65,6 +86,18 @@ def _connect():
                 _schema_ready = True
                 log.info("reviews 스키마 확인 완료")
     return conn
+
+
+def _row(r: tuple) -> dict[str, Any]:
+    d = dict(zip(COLUMNS, r))
+    for k in ("decided_at", "responded_at"):
+        if isinstance(d[k], datetime):
+            d[k] = d[k].isoformat()
+    return d
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def ping() -> dict[str, Any]:
@@ -81,64 +114,98 @@ def ping() -> dict[str, Any]:
         return {"store": "postgres", "db_ok": False, "error": "DB에 연결하지 못했습니다."}
 
 
+def _log(cur, visit_id: str, decision: str, note: str, actor: str, action: str) -> None:
+    cur.execute(
+        "INSERT INTO review_log (visit_id, decision, note, reviewer, action) VALUES (%s, %s, %s, %s, %s)",
+        (visit_id, decision, note, actor, action),
+    )
+
+
+# ── 조회 ─────────────────────────────────────────────────────────────
 def list_reviews() -> dict[str, dict[str, Any]]:
     if not _db_url():
         with _lock:
-            return dict(_memory)
+            return {k: dict(v) for k, v in _memory.items()}
     try:
         with _connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT visit_id, decision, note, reviewer, decided_at FROM reviews"
-            )
-            return {
-                r[0]: {
-                    "visit_id": r[0],
-                    "decision": r[1],
-                    "note": r[2],
-                    "reviewer": r[3],
-                    "decided_at": r[4].isoformat(),
-                }
-                for r in cur.fetchall()
-            }
+            cur.execute(f"SELECT {', '.join(COLUMNS)} FROM reviews")
+            return {r[0]: _row(r) for r in cur.fetchall()}
     except Exception as exc:  # DB 장애 시 화면은 계속 동작해야 합니다.
-        log.error("reviews 조회 실패: %s", exc)
+        log.error("reviews 조회 실패: %s", type(exc).__name__)
         raise StoreError("결정 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.") from exc
 
 
-def save_review(visit_id: str, decision: str, note: str, reviewer: str) -> dict[str, Any]:
-    record = {
-        "visit_id": visit_id,
-        "decision": decision,
-        "note": note,
-        "reviewer": reviewer,
-        "decided_at": datetime.now(timezone.utc).isoformat(),
-    }
+# ── QI팀 결정 ─────────────────────────────────────────────────────────
+def save_decision(visit_id: str, decision: str, note: str, reviewer: str, assigned_dept: str | None) -> dict[str, Any]:
+    """소명 요청이면 stage=requested 로 부서에 배정, 그 밖에는 종결(closed)합니다.
+    소명을 받은 뒤 확정할 때는 부서와 소명 내용을 그대로 남깁니다."""
+    stage = "requested" if decision == "소명 요청" else "closed"
     if not _db_url():
         with _lock:
-            _memory[visit_id] = record
-        return record
+            prev = _memory.get(visit_id, {})
+            rec = {c: prev.get(c) for c in COLUMNS}
+            rec.update(visit_id=visit_id, decision=decision, note=note, reviewer=reviewer, decided_at=_now(), stage=stage)
+            if stage == "requested":
+                rec.update(assigned_dept=assigned_dept, response=None, responder=None, responded_at=None)
+            _memory[visit_id] = rec
+            return dict(rec)
     try:
         with _connect() as conn, conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO reviews (visit_id, decision, note, reviewer, decided_at)
-                VALUES (%s, %s, %s, %s, now())
-                ON CONFLICT (visit_id) DO UPDATE
-                  SET decision = EXCLUDED.decision, note = EXCLUDED.note,
-                      reviewer = EXCLUDED.reviewer, decided_at = now()
+                f"""
+                INSERT INTO reviews (visit_id, decision, note, reviewer, decided_at, stage, assigned_dept)
+                VALUES (%s, %s, %s, %s, now(), %s, %s)
+                ON CONFLICT (visit_id) DO UPDATE SET
+                  decision = EXCLUDED.decision, note = EXCLUDED.note, reviewer = EXCLUDED.reviewer,
+                  decided_at = now(), stage = EXCLUDED.stage,
+                  assigned_dept = CASE WHEN EXCLUDED.stage = 'requested' THEN EXCLUDED.assigned_dept ELSE reviews.assigned_dept END,
+                  response      = CASE WHEN EXCLUDED.stage = 'requested' THEN NULL ELSE reviews.response END,
+                  responder     = CASE WHEN EXCLUDED.stage = 'requested' THEN NULL ELSE reviews.responder END,
+                  responded_at  = CASE WHEN EXCLUDED.stage = 'requested' THEN NULL ELSE reviews.responded_at END
+                RETURNING {', '.join(COLUMNS)}
                 """,
-                (visit_id, decision, note, reviewer),
+                (visit_id, decision, note, reviewer, stage, assigned_dept if stage == "requested" else None),
             )
-            cur.execute(
-                "INSERT INTO review_log (visit_id, decision, note, reviewer) VALUES (%s, %s, %s, %s)",
-                (visit_id, decision, note, reviewer),
-            )
-        return record
+            row = _row(cur.fetchone())
+            _log(cur, visit_id, decision, note, reviewer, "decision")
+        return row
     except Exception as exc:
-        log.error("review 저장 실패: %s", exc)
+        log.error("결정 저장 실패: %s", type(exc).__name__)
         raise StoreError("결정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.") from exc
 
 
+# ── 부서 소명 ─────────────────────────────────────────────────────────
+def save_response(visit_id: str, response: str, responder: str, dept: str) -> dict[str, Any]:
+    if not _db_url():
+        with _lock:
+            rec = _memory.get(visit_id)
+            if not rec or rec.get("stage") != "requested" or rec.get("assigned_dept") != dept:
+                raise StageConflict("이 건은 지금 우리 부서가 소명할 단계가 아니에요.")
+            rec.update(response=response, responder=responder, responded_at=_now(), stage="answered")
+            return dict(rec)
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""
+                UPDATE reviews SET response = %s, responder = %s, responded_at = now(), stage = 'answered'
+                WHERE visit_id = %s AND stage = 'requested' AND assigned_dept = %s
+                RETURNING {', '.join(COLUMNS)}
+                """,
+                (response, responder, visit_id, dept),
+            )
+            got = cur.fetchone()
+            if not got:
+                raise StageConflict("이 건은 지금 우리 부서가 소명할 단계가 아니에요.")
+            _log(cur, visit_id, "소명 제출", response, responder, "response")
+        return _row(got)
+    except StageConflict:
+        raise
+    except Exception as exc:
+        log.error("소명 저장 실패: %s", type(exc).__name__)
+        raise StoreError("소명을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.") from exc
+
+
+# ── 되돌리기·초기화 ───────────────────────────────────────────────────
 def delete_review(visit_id: str) -> None:
     if not _db_url():
         with _lock:
@@ -148,9 +215,23 @@ def delete_review(visit_id: str) -> None:
         with _connect() as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM reviews WHERE visit_id = %s", (visit_id,))
     except Exception as exc:
-        log.error("review 삭제 실패: %s", exc)
+        log.error("review 삭제 실패: %s", type(exc).__name__)
         raise StoreError("결정을 되돌리지 못했습니다.") from exc
 
 
-class StoreError(RuntimeError):
-    pass
+def reset_reviews(actor: str) -> int:
+    """[데모] 모든 결정·소명을 비웁니다. 이력(review_log)에는 초기화 기록을 남깁니다."""
+    if not _db_url():
+        with _lock:
+            n = len(_memory)
+            _memory.clear()
+            return n
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM reviews")
+            n = cur.rowcount
+            _log(cur, "*", "초기화", f"{n}건 삭제", actor, "reset")
+        return n
+    except Exception as exc:
+        log.error("초기화 실패: %s", type(exc).__name__)
+        raise StoreError("데모 데이터를 초기화하지 못했습니다.") from exc

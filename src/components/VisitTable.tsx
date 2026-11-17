@@ -1,7 +1,7 @@
 // [개발 > 프론트엔드] 전체 내원 목록 — 상태·구역 필터, 검색
 import { useMemo, useState } from "react";
 import type { Review, Status, Visit } from "../types";
-import { clock, duration, STATUS_LABEL } from "../format";
+import { clock, deptName, duration, STAGE_LABEL, STATUS_LABEL } from "../format";
 
 interface Props {
   visits: Visit[];
@@ -69,7 +69,7 @@ export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
             <thead>
               <tr>
                 <th>내원번호</th><th>상태</th><th>내원</th><th>구역</th><th>KTAS</th><th>주호소</th>
-                <th className="num">체류</th><th className="num">진료 대기</th><th>퇴실</th><th>결정</th>
+                <th className="num">체류</th><th className="num">진료 대기</th><th>퇴실</th><th>진행</th>
               </tr>
             </thead>
             <tbody>
@@ -84,7 +84,14 @@ export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
                   <td className={`num ${v.metrics.los_min && v.metrics.los_min >= 1440 ? "text-danger strong" : ""}`}>{duration(v.metrics.los_min)}</td>
                   <td className="num">{duration(v.metrics.door_to_doc_min)}</td>
                   <td>{v.disposition}</td>
-                  <td>{reviews[v.visit_id]?.decision ?? <span className="muted">-</span>}</td>
+                  <td>
+                    {(() => {
+                      const r = reviews[v.visit_id];
+                      if (!r) return v.flags.length ? <span className="muted">QI 판정 대기</span> : <span className="muted">-</span>;
+                      if (r.stage === "closed") return <span className={`pill decision-${r.decision.replace(" ", "")}`}>{r.decision}</span>;
+                      return <span className={`pill stage-${r.stage}`}>{deptName(r.assigned_dept)} · {STAGE_LABEL[r.stage]}</span>;
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>

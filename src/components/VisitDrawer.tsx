@@ -1,7 +1,7 @@
 // [개발 > 프론트엔드] 내원 상세 — Triage → 진료 → 입원 결정 → 병상 배정 → 퇴실 타임라인
 import { useEffect, useRef } from "react";
 import type { Review, Visit } from "../types";
-import { clock, duration, STATUS_LABEL } from "../format";
+import { clock, deptName, duration, STAGE_LABEL, STATUS_LABEL, stamp } from "../format";
 
 interface Props {
   visit: Visit;
@@ -61,6 +61,7 @@ export default function VisitDrawer({ visit, review, onClose }: Props) {
             <div><dt>구역</dt><dd>{visit.zone}</dd></div>
             <div><dt>분류 간호사</dt><dd>{visit.triage_nurse}</dd></div>
             <div><dt>담당의</dt><dd>{visit.physician}</dd></div>
+            <div><dt>소명 담당 부서</dt><dd>{deptName(visit.owner_dept)}</dd></div>
             <div><dt>재분류 근거</dt><dd>{visit.retriage_reason ?? (visit.ktas_initial !== visit.ktas_final ? <span className="text-danger">기록 없음</span> : "-")}</dd></div>
           </dl>
         </section>
@@ -111,9 +112,24 @@ export default function VisitDrawer({ visit, review, onClose }: Props) {
 
         {review && (
           <section>
-            <h3 className="sub">담당자 결정</h3>
-            <p><b>{review.decision}</b> · {review.reviewer}</p>
-            {review.note && <p className="muted">{review.note}</p>}
+            <h3 className="sub">진행 · {STAGE_LABEL[review.stage]}</h3>
+            <ol className="trail">
+              <li>
+                <b>QI팀 {review.decision}</b> <span className="muted small">{review.reviewer} · {stamp(review.decided_at)}</span>
+                {review.note && <p className="muted">{review.note}</p>}
+              </li>
+              {review.assigned_dept && (
+                <li>
+                  <b>{deptName(review.assigned_dept)} 소명</b>{" "}
+                  {review.response ? (
+                    <>
+                      <span className="muted small">{review.responder} · {stamp(review.responded_at)}</span>
+                      <p>{review.response}</p>
+                    </>
+                  ) : <span className="muted small">답변 대기</span>}
+                </li>
+              )}
+            </ol>
           </section>
         )}
       </aside>

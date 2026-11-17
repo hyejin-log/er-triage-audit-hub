@@ -36,6 +36,7 @@ export interface Visit {
   metrics: { los_min: number | null; door_to_doc_min: number | null; boarding_min: number | null; ktas_target_min: number | null };
   flags: Flag[];
   status: Status;
+  owner_dept: DeptCode | null;
 }
 
 export interface Zone {
@@ -79,10 +80,28 @@ export interface Rationale {
   note?: string;
 }
 
+// [설계 > 사용자 시나리오] QI 결정 → (소명 요청) → 부서 소명 → QI 확정
+export type Stage = "requested" | "answered" | "closed";
+export type DeptCode = "QI" | "NURSING" | "EM" | "BED";
+
 export interface Review {
   visit_id: string;
   decision: Decision;
   note: string;
   reviewer: string;
   decided_at: string;
+  stage: Stage;
+  assigned_dept: DeptCode | null;
+  response: string | null;
+  responder: string | null;
+  responded_at: string | null;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  dept: DeptCode;
+  dept_name: string;
+  kind: "demo" | "email";
+  email: string | null;
 }

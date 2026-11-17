@@ -1,5 +1,5 @@
 // [개발 > 프론트엔드] API 클라이언트 — 오류는 사용자가 읽을 수 있는 문장으로 바꿔서 던집니다.
-import type { Decision, Rationale, Review, Rule, Summary, Visit } from "./types";
+import type { Decision, DeptCode, Rationale, Review, Rule, Summary, User, Visit } from "./types";
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0) {
@@ -48,7 +48,13 @@ export const api = {
   rules: () => request<Record<string, Rule>>("/api/rules"),
   aiReview: (id: string) => request<Rationale>(`/api/visits/${encodeURIComponent(id)}/ai-review`, { method: "POST" }),
   reviews: () => request<{ store: string; items: Record<string, Review> }>("/api/reviews"),
-  saveReview: (body: { visit_id: string; decision: Decision; note: string; reviewer: string }) =>
+  saveReview: (body: { visit_id: string; decision: Decision; note: string }) =>
     request<Review>("/api/reviews", { method: "POST", body: JSON.stringify(body) }),
+  respond: (id: string, response: string) =>
+    request<Review>(`/api/reviews/${encodeURIComponent(id)}/response`, { method: "POST", body: JSON.stringify({ response }) }),
   deleteReview: (id: string) => request<void>(`/api/reviews/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // [개발 > 인증]
+  demoLogin: (dept: DeptCode) => request<{ token: string; user: User }>("/api/demo-login", { method: "POST", body: JSON.stringify({ dept }) }),
+  me: () => request<User>("/api/me"),
+  resetDemo: () => request<{ deleted: number }>("/api/demo/reset", { method: "POST" }),
 };
