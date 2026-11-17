@@ -10,7 +10,7 @@ import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
 import Landing from "./components/Landing";
 import JudgeBrief from "./components/JudgeBrief";
-import { ShieldAlert, Sparkles } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -269,17 +269,20 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden><ShieldAlert size={22} /></span>
+          <span className="brand-mark" aria-hidden><Plus size={24} strokeWidth={3} /></span>
           <div>
-            <strong>ER Triage Lens</strong>
-            <span className="brand-sub">응급실 KTAS 감사 허브</span>
+            <span className="brand-title">
+              <strong>MediGuard ER</strong>
+              <span className="brand-badge hide-sm">Clinical Audit Intelligence</span>
+            </span>
+            <span className="brand-sub">응급실 중증도(KTAS) 적정성 감사 · AI 검증</span>
           </div>
         </div>
         <div className="topbar-meta">
           <button className="btn btn-sm btn-brief" onClick={() => setBriefOpen(true)} aria-label="핵심 요약 열기">
             <Sparkles className="ico" /><span>핵심 요약</span>
           </button>
-          <span className="sys-status hide-sm" title={summary ? `${summary.period} · 가상 데이터` : "가상 데이터"}>
+          <span className={`sys-status hide-sm ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} title={summary ? `${summary.period} · 가상 데이터` : "가상 데이터"}>
             <i className={`sys-dot ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} />
             <span>
               {!health ? "상태 확인 중" : !health.ok ? "서버 연결 확인 필요" : health.store === "postgres" ? "DB 연결 정상 · 가상 데이터" : "메모리 저장(데모) · 가상 데이터"}
@@ -360,7 +363,7 @@ export default function App() {
                 onReset={resetDemo}
               />
             )}
-            {tab === "all" && <VisitTable visits={visits} reviews={reviews} zones={summary.zones.map((z) => z.zone)} onOpen={setSelected} />}
+            {tab === "all" && <VisitTable visits={visits} reviews={reviews} zones={summary.zones.map((z) => z.zone)} hospital={summary.hospital} onOpen={setSelected} />}
             {tab === "rules" && <RulesPanel rules={rules} summary={summary} storeName={storeName} />}
           </>
         )}

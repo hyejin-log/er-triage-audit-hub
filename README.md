@@ -1,11 +1,13 @@
-# ER Triage Lens · 응급실 KTAS 감사 허브
+# MediGuard ER · 응급실 KTAS 감사 허브
+
+> Clinical Audit Intelligence — 의료데이터 기반 응급실 중증도(KTAS) 적정성 감사 및 AI 검증 (저장소 이름: er-triage-audit-hub)
 
 응급실에 내원한 환자의 **중증도 분류(KTAS 1~5)가 적절했는지**, **체류 시간이 24시간을 넘지 않았는지**,
 **입원 병상 배정이 늦어지지 않았는지**를 감사하는 대시보드입니다.
 
 [Rebate Lens](https://rebate-lens-dqbe.axhub.app)(판매장려금 지급 검토)의 구조를 의료 데이터에 맞게 옮겼습니다.
 
-| Rebate Lens | ER Triage Lens |
+| Rebate Lens | MediGuard ER |
 |---|---|
 | 판매장려금 지급 건 40건 | 응급실 내원 160건 (48시간, 가상) |
 | 관련 거래처 그룹 합산 | 구역별 동시 재실 환자 합산 |
@@ -20,7 +22,7 @@
 
 ## 화면 디자인
 
-Control Tower 톤(네이비 상단바 · 주황 포인트 · 아이보리 배경, 라이트/다크 모드)입니다.
+MediGuard ER 톤(흰 상단바 · 빨간 의료 십자 로고 · 하늘색 포인트, 핵심 요약 버튼만 주황, 라이트/다크 모드)입니다.
 
 - 상단 **핵심 요약**: 문제 · 데이터 흐름 · 이 데모에서 확인되는 효과(앱이 계산한 실제 수치만)
 - 상단 상태 표시: `/api/health` 결과(DB 연결 정상 / 메모리 저장 / 서버 확인 필요)

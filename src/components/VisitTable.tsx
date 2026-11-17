@@ -2,22 +2,24 @@
 // 체크리스트는 감사 규칙 엔진의 실제 결과로만 채웁니다.
 import { useMemo, useRef, useState } from "react";
 import {
-  AlertCircle, AlertTriangle, CheckCircle2, Cpu, FileSpreadsheet, History, MinusCircle, RefreshCw, XCircle,
+  AlertCircle, AlertTriangle, CheckCircle2, Cpu, FileSpreadsheet, FileText, History, MinusCircle, RefreshCw, XCircle,
 } from "lucide-react";
 import { api, ApiError, downloadExport } from "../api";
 import type { Rationale, Review, Status, Visit } from "../types";
 import { clock, deptName, duration, STAGE_LABEL } from "../format";
+import { buildReportHtml, printReport } from "../report";
 
 interface Props {
   visits: Visit[];
   reviews: Record<string, Review>;
   zones: string[];
+  hospital: string;
   onOpen: (v: Visit) => void;
 }
 
 const KTAS_NAME = ["", "소생", "긴급", "응급", "준응급", "비응급"];
 
-export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
+export default function VisitTable({ visits, reviews, zones, hospital, onOpen }: Props) {
   const [status, setStatus] = useState<"all" | Status>("all");
   const [zone, setZone] = useState("all");
   const [ktas, setKtas] = useState("all");
@@ -138,7 +140,7 @@ export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
           </div>
 
           <aside className="card inspector" ref={inspectorRef} aria-label="AI 감사 인스펙터">
-            {selected && <Inspector key={selected.visit_id} visit={selected} review={reviews[selected.visit_id]} onOpen={onOpen} />}
+            {selected && <Inspector key={selected.visit_id} visit={selected} review={reviews[selected.visit_id]} hospital={hospital} onOpen={onOpen} />}
           </aside>
         </div>
       )}
@@ -196,7 +198,7 @@ function checklist(v: Visit): Check[] {
 
 const CHECK_ICON = { ok: CheckCircle2, warn: AlertTriangle, bad: XCircle, na: MinusCircle };
 
-function Inspector({ visit, review, onOpen }: { visit: Visit; review?: Review; onOpen: (v: Visit) => void }) {
+function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?: Review; hospital: string; onOpen: (v: Visit) => void }) {
   const [ai, setAi] = useState<Rationale | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -269,7 +271,19 @@ function Inspector({ visit, review, onOpen }: { visit: Visit; review?: Review; o
       </div>
 
       <div className="inspector-actions">
-        <button className="btn btn-primary btn-block" onClick={() => onOpen(visit)}>
+        <button
+          className="btn btn-primary btn-block"
+          onClick={() => {
+            try {
+              printReport(buildReportHtml(visit, review, checks, hospital));
+            } catch {
+              setError("보고서를 만들지 못했어요. 브라우저 인쇄가 막혀 있는지 확인해 주세요.");
+            }
+          }}
+        >
+          <FileText className="ico" />&nbsp;상세 감사 보고서(PDF) 내보내기
+        </button>
+        <button className="btn btn-block" onClick={() => onOpen(visit)}>
           <History className="ico" />&nbsp;타임라인 · 팀 메모 열기
         </button>
         <button className="btn btn-block" onClick={runAi} disabled={loading}>
