@@ -1,6 +1,7 @@
 // [기획 > MVP 소개] 로그인 전 첫 화면 — 허브 설명 + 전체 집계 한눈에 보기 + 팀별 입장
 // 건별 내원 정보는 로그인한 팀에게만 보여 줍니다. 여기에는 숫자 집계만 나옵니다.
 import { useState } from "react";
+import { AlertOctagon, BedDouble, CheckCircle2, Clock, Users } from "lucide-react";
 import type { DeptCode, Progress, Summary } from "../types";
 import { DEPTS, duration, withRo } from "../format";
 
@@ -67,26 +68,31 @@ export default function Landing({ summary, progress, onDemoLogin }: Props) {
         ) : (
           <div className="kpis kpis-5">
             <article className="kpi">
+              <span className="kpi-icon" aria-hidden><Users /></span>
               <span className="kpi-label">감사 대상 내원</span>
               <strong className="kpi-value">{summary.total}<small>건</small></strong>
               <span className="kpi-foot">{summary.period}</span>
             </article>
             <article className="kpi kpi-danger">
+              <span className="kpi-icon tone-danger" aria-hidden><AlertOctagon /></span>
               <span className="kpi-label">감사 신호</span>
               <strong className="kpi-value">{summary.high + summary.medium}<small>건</small></strong>
               <span className="kpi-foot">확인 필요 {summary.high} · 주의 관찰 {summary.medium}</span>
             </article>
             <article className={`kpi ${worst && worst.ratio > 100 ? "kpi-warn" : ""}`}>
+              <span className="kpi-icon tone-warn" aria-hidden><BedDouble /></span>
               <span className="kpi-label">가장 붐빈 구역</span>
               <strong className="kpi-value kpi-value-sm">{worst?.zone} {worst?.ratio}%</strong>
               <span className="kpi-foot">병상 {worst?.beds}개에 최대 {worst?.peak}명</span>
             </article>
             <article className="kpi">
+              <span className="kpi-icon tone-accent" aria-hidden><Clock /></span>
               <span className="kpi-label">체류 시간 중앙값</span>
               <strong className="kpi-value kpi-value-sm">{duration(summary.median_los_min)}</strong>
               <span className="kpi-foot">24시간 초과 {summary.los_buckets["24시간 초과"] ?? 0}명</span>
             </article>
             <article className="kpi">
+              <span className="kpi-icon tone-ok" aria-hidden><CheckCircle2 /></span>
               <span className="kpi-label">감사 진행</span>
               {progress?.available ? (
                 <>

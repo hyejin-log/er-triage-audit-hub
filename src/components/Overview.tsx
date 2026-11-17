@@ -1,5 +1,6 @@
 // [개발 > 프론트엔드] 한눈에 보기 — 요약 / 구역 합산 vs 병상 한도 / 환자 흐름 시각화
 import type { Review, Summary, Visit } from "../types";
+import { AlertOctagon, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import type { Tab } from "../App";
 import { clock, DEPTS, duration } from "../format";
 
@@ -51,21 +52,25 @@ export default function Overview({ summary, visits, reviews, pendingHigh, onGo }
 
       <section className="kpis">
         <article className="kpi kpi-danger">
+          <span className="kpi-icon tone-danger" aria-hidden><AlertOctagon /></span>
           <span className="kpi-label">확인 필요</span>
           <strong className="kpi-value">{summary.high}<small>건</small></strong>
           <span className="kpi-foot">QI 판정 대기 {pendingHigh}건 · 종결 {closed.length}건</span>
         </article>
         <article className="kpi kpi-warn">
+          <span className="kpi-icon tone-warn" aria-hidden><AlertTriangle /></span>
           <span className="kpi-label">주의 관찰</span>
           <strong className="kpi-value">{summary.medium}<small>건</small></strong>
           <span className="kpi-foot">진료 지연 · 병상 대기 6시간 초과</span>
         </article>
         <article className="kpi">
+          <span className="kpi-icon tone-ok" aria-hidden><CheckCircle2 /></span>
           <span className="kpi-label">정상 진행</span>
           <strong className="kpi-value">{summary.normal}<small>건</small></strong>
           <span className="kpi-foot">전체 {summary.total}건 중 {Math.round((summary.normal / summary.total) * 100)}%</span>
         </article>
         <article className="kpi">
+          <span className="kpi-icon tone-accent" aria-hidden><Clock /></span>
           <span className="kpi-label">체류 시간 중앙값</span>
           <strong className="kpi-value kpi-value-sm">{duration(summary.median_los_min)}</strong>
           <span className="kpi-foot">24시간 초과 {summary.los_buckets["24시간 초과"] ?? 0}명</span>

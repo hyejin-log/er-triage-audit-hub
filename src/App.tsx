@@ -9,6 +9,8 @@ import AuthBar from "./components/AuthBar";
 import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
 import Landing from "./components/Landing";
+import JudgeBrief from "./components/JudgeBrief";
+import { ShieldAlert, Sparkles } from "lucide-react";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -25,6 +27,8 @@ export default function App() {
   const [visitsLoaded, setVisitsLoaded] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [health, setHealth] = useState<{ ok: boolean; store?: string; db_ok?: boolean | null } | null>(null);
   const [rules, setRules] = useState<Record<string, Rule>>({});
   const [reviews, setReviews] = useState<Record<string, Review>>({});
   const [storeName, setStoreName] = useState<string>("");
@@ -144,6 +148,8 @@ export default function App() {
 
   useEffect(() => {
     loadPublic();
+    // [유지보수] 상단 상태 표시 — 실제 /api/health 결과만 씁니다.
+    api.health().then(setHealth, () => setHealth({ ok: false }));
   }, [loadPublic]);
 
   // 로그인하면 내원 목록을 불러오고, 로그아웃하면 지웁니다.
@@ -263,15 +269,22 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden>+</span>
+          <span className="brand-mark" aria-hidden><ShieldAlert size={22} /></span>
           <div>
             <strong>ER Triage Lens</strong>
             <span className="brand-sub">응급실 KTAS 감사 허브</span>
           </div>
         </div>
         <div className="topbar-meta">
-          {summary && <span className="hide-sm">{summary.period}</span>}
-          <span className="pill pill-muted hide-sm">가상 데이터</span>
+          <button className="btn btn-sm btn-brief" onClick={() => setBriefOpen(true)} aria-label="핵심 요약 열기">
+            <Sparkles className="ico" /><span>핵심 요약</span>
+          </button>
+          <span className="sys-status hide-sm" title={summary ? `${summary.period} · 가상 데이터` : "가상 데이터"}>
+            <i className={`sys-dot ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} />
+            <span>
+              {!health ? "상태 확인 중" : !health.ok ? "서버 연결 확인 필요" : health.store === "postgres" ? "DB 연결 정상 · 가상 데이터" : "메모리 저장(데모) · 가상 데이터"}
+            </span>
+          </span>
           <AuthBar user={user} onDemoLogin={demoLogin} onLogout={logout} />
         </div>
       </header>
@@ -354,6 +367,7 @@ export default function App() {
       </main>
 
       {selected && <VisitDrawer visit={selected} review={reviews[selected.visit_id]} user={user} onClose={() => setSelected(null)} />}
+      {briefOpen && <JudgeBrief summary={summary} progress={progress} onClose={() => setBriefOpen(false)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );

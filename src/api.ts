@@ -45,6 +45,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   summary: () => request<Summary>("/api/summary"),
   progress: () => request<Progress>("/api/progress"),
+  health: () => request<{ ok: boolean; store?: string; db_ok?: boolean | null }>("/api/health"),
   visits: () => request<{ count: number; items: Visit[] }>("/api/visits"),
   rules: () => request<Record<string, Rule>>("/api/rules"),
   aiReview: (id: string) => request<Rationale>(`/api/visits/${encodeURIComponent(id)}/ai-review`, { method: "POST" }),

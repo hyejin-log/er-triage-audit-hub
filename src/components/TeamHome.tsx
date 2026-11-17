@@ -1,6 +1,7 @@
 // [개발 > 프론트엔드] 팀별 홈 — 같은 데이터를 공유하지만 팀마다 보는 지표가 다릅니다.
 //   응급간호팀: KTAS 분류 품질 / 응급의학과: 진료 대기·재내원 / 병상관리팀: 과밀화·병상 대기
 import { useEffect, useState } from "react";
+import { Activity, AlertOctagon, AlertTriangle } from "lucide-react";
 import { api } from "../api";
 import type { DeptCode, Review, Summary, TeamNote, User, Visit } from "../types";
 import type { Tab } from "../App";
@@ -277,6 +278,9 @@ function BedBoard({ summary, visits }: Props) {
 function Kpi({ label, value, unit, foot, tone, small }: { label: string; value: number | string; unit?: string; foot: string; tone?: "warn" | "danger"; small?: boolean }) {
   return (
     <article className={`kpi ${tone ? `kpi-${tone}` : ""}`}>
+      <span className={`kpi-icon ${tone ? `tone-${tone}` : ""}`} aria-hidden>
+        {tone === "danger" ? <AlertOctagon /> : tone === "warn" ? <AlertTriangle /> : <Activity />}
+      </span>
       <span className="kpi-label">{label}</span>
       <strong className={`kpi-value ${small ? "kpi-value-sm" : ""}`}>{value}{unit && <small>{unit}</small>}</strong>
       <span className="kpi-foot">{foot}</span>
