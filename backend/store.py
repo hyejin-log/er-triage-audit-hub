@@ -54,7 +54,8 @@ def _connect():
     global _schema_ready
     import psycopg  # 지연 import: DB를 안 쓰면 설치하지 않아도 됩니다.
 
-    conn = psycopg.connect(_db_url(), connect_timeout=8)
+    # Neon의 DATABASE_URL 은 PgBouncer(트랜잭션 풀링) 주소이므로 prepared statement 를 끕니다.
+    conn = psycopg.connect(_db_url(), connect_timeout=8, prepare_threshold=None)
     if not _schema_ready:
         with _lock:
             if not _schema_ready:
