@@ -24,3 +24,13 @@ CREATE TABLE IF NOT EXISTS review_log (
 );
 ALTER TABLE review_log ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'decision';
 CREATE INDEX IF NOT EXISTS idx_review_log_visit ON review_log (visit_id, logged_at DESC);
+-- 팀 내부 메모: 같은 부서만 읽고 씁니다(API에서 부서로 거릅니다).
+CREATE TABLE IF NOT EXISTS team_notes (
+    id          BIGSERIAL PRIMARY KEY,
+    visit_id    TEXT NOT NULL,
+    dept        TEXT NOT NULL,
+    author      TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_team_notes_dept ON team_notes (dept, visit_id, created_at DESC);

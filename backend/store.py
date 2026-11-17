@@ -21,6 +21,8 @@ from typing import Any
 log = logging.getLogger("er-audit.store")
 
 _memory: dict[str, dict[str, Any]] = {}
+_notes: list[dict[str, Any]] = []
+_note_seq = 0
 _lock = threading.Lock()
 _schema_ready = False
 
@@ -52,6 +54,16 @@ CREATE TABLE IF NOT EXISTS review_log (
 );
 ALTER TABLE review_log ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'decision';
 CREATE INDEX IF NOT EXISTS idx_review_log_visit ON review_log (visit_id, logged_at DESC);
+-- 팀 내부 메모: 같은 부서만 읽고 씁니다(API에서 부서로 거릅니다).
+CREATE TABLE IF NOT EXISTS team_notes (
+    id          BIGSERIAL PRIMARY KEY,
+    visit_id    TEXT NOT NULL,
+    dept        TEXT NOT NULL,
+    author      TEXT NOT NULL,
+    body        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_team_notes_dept ON team_notes (dept, visit_id, created_at DESC);
 """
 
 
@@ -220,18 +232,93 @@ def delete_review(visit_id: str) -> None:
 
 
 def reset_reviews(actor: str) -> int:
-    """[데모] 모든 결정·소명을 비웁니다. 이력(review_log)에는 초기화 기록을 남깁니다."""
+    """[데모] 모든 결정·소명·팀 메모를 비웁니다. 이력(review_log)에는 초기화 기록을 남깁니다."""
     if not _db_url():
         with _lock:
             n = len(_memory)
             _memory.clear()
+            _notes.clear()
             return n
     try:
         with _connect() as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM reviews")
             n = cur.rowcount
+            cur.execute("DELETE FROM team_notes")
             _log(cur, "*", "초기화", f"{n}건 삭제", actor, "reset")
         return n
     except Exception as exc:
         log.error("초기화 실패: %s", type(exc).__name__)
         raise StoreError("데모 데이터를 초기화하지 못했습니다.") from exc
+
+
+# ── 팀 내부 메모 ──────────────────────────────────────────────────────
+NOTE_COLUMNS = ("id", "visit_id", "dept", "author", "body", "created_at")
+
+
+def _note(r: tuple) -> dict[str, Any]:
+    d = dict(zip(NOTE_COLUMNS, r))
+    if isinstance(d["created_at"], datetime):
+        d["created_at"] = d["created_at"].isoformat()
+    return d
+
+
+def list_notes(dept: str, visit_id: str | None = None) -> list[dict[str, Any]]:
+    """같은 부서의 메모만 돌려줍니다. 최신순."""
+    if not _db_url():
+        with _lock:
+            items = [dict(n) for n in _notes if n["dept"] == dept and (visit_id is None or n["visit_id"] == visit_id)]
+        return sorted(items, key=lambda n: n["created_at"], reverse=True)
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            if visit_id:
+                cur.execute(
+                    f"SELECT {', '.join(NOTE_COLUMNS)} FROM team_notes WHERE dept = %s AND visit_id = %s ORDER BY created_at DESC",
+                    (dept, visit_id),
+                )
+            else:
+                cur.execute(
+                    f"SELECT {', '.join(NOTE_COLUMNS)} FROM team_notes WHERE dept = %s ORDER BY created_at DESC LIMIT 200",
+                    (dept,),
+                )
+            return [_note(r) for r in cur.fetchall()]
+    except Exception as exc:
+        log.error("팀 메모 조회 실패: %s", type(exc).__name__)
+        raise StoreError("팀 메모를 불러오지 못했습니다.") from exc
+
+
+def add_note(visit_id: str, dept: str, author: str, body: str) -> dict[str, Any]:
+    global _note_seq
+    if not _db_url():
+        with _lock:
+            _note_seq += 1
+            rec = {"id": _note_seq, "visit_id": visit_id, "dept": dept, "author": author, "body": body, "created_at": _now()}
+            _notes.append(rec)
+            return dict(rec)
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"INSERT INTO team_notes (visit_id, dept, author, body) VALUES (%s, %s, %s, %s) RETURNING {', '.join(NOTE_COLUMNS)}",
+                (visit_id, dept, author, body),
+            )
+            return _note(cur.fetchone())
+    except Exception as exc:
+        log.error("팀 메모 저장 실패: %s", type(exc).__name__)
+        raise StoreError("팀 메모를 저장하지 못했습니다.") from exc
+
+
+def delete_note(note_id: int, dept: str) -> bool:
+    """같은 부서의 메모만 지웁니다. 지웠으면 True."""
+    if not _db_url():
+        with _lock:
+            for i, n in enumerate(_notes):
+                if n["id"] == note_id and n["dept"] == dept:
+                    _notes.pop(i)
+                    return True
+        return False
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM team_notes WHERE id = %s AND dept = %s", (note_id, dept))
+            return cur.rowcount > 0
+    except Exception as exc:
+        log.error("팀 메모 삭제 실패: %s", type(exc).__name__)
+        raise StoreError("팀 메모를 지우지 못했습니다.") from exc

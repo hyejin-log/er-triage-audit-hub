@@ -200,6 +200,33 @@ def demo_reset(user: User = Depends(require_qi)):
     return {"deleted": _store_call(store.reset_reviews, user.name)}
 
 
+# ── 팀 내부 메모 (같은 부서만 읽고 씀) ────────────────────────────────
+class NoteIn(BaseModel):
+    visit_id: str = Field(min_length=3, max_length=30)
+    body: str = Field(min_length=1, max_length=500)
+
+
+@app.get("/api/notes")
+def get_notes(visit_id: str | None = Query(default=None, max_length=30), user: User = Depends(require_user)):
+    return {"dept": user.dept, "items": _store_call(store.list_notes, user.dept, visit_id)}
+
+
+@app.post("/api/notes", status_code=201)
+def post_note(body: NoteIn, user: User = Depends(require_user)):
+    find_visit(body.visit_id)
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="메모 내용을 적어 주세요.")
+    author = f"{user.name} ({user.dept_name})" if user.kind == "email" else user.name
+    return _store_call(store.add_note, body.visit_id, user.dept, author, text)
+
+
+@app.delete("/api/notes/{note_id}", status_code=204)
+def remove_note(note_id: int, user: User = Depends(require_user)):
+    if not _store_call(store.delete_note, note_id, user.dept):
+        raise HTTPException(status_code=404, detail="우리 팀 메모가 아니거나 이미 지워졌어요.")
+
+
 # ── 내보내기 (이음 프로젝트와 같은 openpyxl 기반) ──────────────────────
 @app.get("/api/export.xlsx")
 def export_xlsx():

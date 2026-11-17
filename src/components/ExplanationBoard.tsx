@@ -143,7 +143,7 @@ function QiView({ visits, reviews, user, onOpen, onGo, onReset }: Props) {
         {user?.dept === "QI" && total > 0 && (
           confirming ? (
             <div className="confirm-box" role="alertdialog" aria-label="데모 초기화 확인">
-              <span className="small">결정·소명 <b>{total}건</b>을 모두 지워요. 되돌릴 수 없어요.</span>
+              <span className="small">결정·소명 <b>{total}건</b>과 모든 팀 메모를 지워요. 되돌릴 수 없어요.</span>
               <div className="row-gap">
                 <button className="btn btn-sm btn-ghost" onClick={() => setConfirming(false)}>취소</button>
                 <button className="btn btn-sm btn-danger" onClick={async () => { await onReset(); setConfirming(false); }}>{total}건 지우기</button>

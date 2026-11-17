@@ -55,3 +55,14 @@ export function stamp(iso: string | null | undefined): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+
+export function median(values: number[]): number | null {
+  const v = values.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2);
+}
+
+export function pct(n: number, d: number): number {
+  return d ? Math.round((n / d) * 100) : 0;
+}

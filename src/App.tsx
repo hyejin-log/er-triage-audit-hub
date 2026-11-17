@@ -7,6 +7,7 @@ import type { Decision, DeptCode, Review, Rule, Summary, User, Visit } from "./t
 import { safeStorage, saveStorage } from "./format";
 import AuthBar from "./components/AuthBar";
 import Overview from "./components/Overview";
+import TeamHome from "./components/TeamHome";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -27,6 +28,10 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [showHospital, setShowHospital] = useState(false);
+
+  // 팀이 바뀌면 팀 홈부터 보여 줍니다.
+  useEffect(() => setShowHospital(false), [user?.dept]);
 
   // ── [개발 > 인증] 세션 ────────────────────────────────────────────
   const adoptToken = useCallback(async (token: string | null, quiet = false) => {
@@ -82,8 +87,8 @@ export default function App() {
       if (supabase) await supabase.auth.signOut();
       const { token } = await api.demoLogin(dept);
       saveStorage(DEMO_TOKEN_KEY, token);
-      const me = await adoptToken(token);
-      if (me && me.dept !== "QI") setTab("explain");
+      await adoptToken(token);
+      setTab("overview");
     },
     [adoptToken],
   );
@@ -209,7 +214,7 @@ export default function App() {
     : reviewList.filter((r) => r.stage === "answered").length;
 
   const tabs: { id: Tab; label: string; count?: number; tone?: string }[] = [
-    { id: "overview", label: "한눈에 보기" },
+    { id: "overview", label: user && !isQi ? `${user.dept_name} 홈` : "한눈에 보기" },
     { id: "high", label: "확인 필요", count: pendingHigh, tone: "danger" },
     { id: "medium", label: "주의 관찰", count: mediumVisits.filter(needsQi).length, tone: "warn" },
     { id: "explain", label: user && !isQi ? `${user.dept_name} 소명` : "소명 현황", count: explainCount, tone: "accent" },
@@ -262,8 +267,27 @@ export default function App() {
           </div>
         ) : (
           <>
-            {tab === "overview" && (
-              <Overview summary={summary} visits={visits} reviews={reviews} pendingHigh={pendingHigh} onGo={setTab} />
+            {tab === "overview" && user && !isQi && !showHospital && (
+              <TeamHome
+                user={user}
+                summary={summary}
+                visits={visits}
+                reviews={reviews}
+                onOpen={setSelected}
+                onGo={setTab}
+                onShowHospital={() => setShowHospital(true)}
+              />
+            )}
+            {tab === "overview" && (!user || isQi || showHospital) && (
+              <>
+                {user && !isQi && (
+                  <div className="back-bar">
+                    <span className="muted small">병원 전체 현황을 보고 있어요.</span>
+                    <button className="link" onClick={() => setShowHospital(false)}>← {user.dept_name} 홈으로</button>
+                  </div>
+                )}
+                <Overview summary={summary} visits={visits} reviews={reviews} pendingHigh={pendingHigh} onGo={setTab} />
+              </>
             )}
             {tab === "high" && (
               <ReviewQueue visits={highVisits} reviews={reviews} user={user} onDecide={decide} onUndo={undo} onOpen={setSelected} />
@@ -288,7 +312,7 @@ export default function App() {
         )}
       </main>
 
-      {selected && <VisitDrawer visit={selected} review={reviews[selected.visit_id]} onClose={() => setSelected(null)} />}
+      {selected && <VisitDrawer visit={selected} review={reviews[selected.visit_id]} user={user} onClose={() => setSelected(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );

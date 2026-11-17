@@ -1,5 +1,5 @@
 // [개발 > 프론트엔드] API 클라이언트 — 오류는 사용자가 읽을 수 있는 문장으로 바꿔서 던집니다.
-import type { Decision, DeptCode, Rationale, Review, Rule, Summary, User, Visit } from "./types";
+import type { Decision, DeptCode, Rationale, Review, Rule, Summary, TeamNote, User, Visit } from "./types";
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0) {
@@ -57,4 +57,10 @@ export const api = {
   demoLogin: (dept: DeptCode) => request<{ token: string; user: User }>("/api/demo-login", { method: "POST", body: JSON.stringify({ dept }) }),
   me: () => request<User>("/api/me"),
   resetDemo: () => request<{ deleted: number }>("/api/demo/reset", { method: "POST" }),
+  // [개발 > 협업] 팀 메모
+  notes: (visitId?: string) =>
+    request<{ dept: DeptCode; items: TeamNote[] }>(`/api/notes${visitId ? `?visit_id=${encodeURIComponent(visitId)}` : ""}`),
+  addNote: (visitId: string, body: string) =>
+    request<TeamNote>("/api/notes", { method: "POST", body: JSON.stringify({ visit_id: visitId, body }) }),
+  deleteNote: (id: number) => request<void>(`/api/notes/${id}`, { method: "DELETE" }),
 };

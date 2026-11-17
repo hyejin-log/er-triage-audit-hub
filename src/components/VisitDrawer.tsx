@@ -1,11 +1,13 @@
 // [개발 > 프론트엔드] 내원 상세 — Triage → 진료 → 입원 결정 → 병상 배정 → 퇴실 타임라인
-import { useEffect, useRef } from "react";
-import type { Review, Visit } from "../types";
+import { useEffect, useRef, useState } from "react";
+import { api, ApiError } from "../api";
+import type { Review, TeamNote, User, Visit } from "../types";
 import { clock, deptName, duration, STAGE_LABEL, STATUS_LABEL, stamp } from "../format";
 
 interface Props {
   visit: Visit;
   review?: Review;
+  user: User | null;
   onClose: () => void;
 }
 
@@ -23,7 +25,7 @@ function gap(a: string | null, b: string | null): number | null {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
 }
 
-export default function VisitDrawer({ visit, review, onClose }: Props) {
+export default function VisitDrawer({ visit, review, user, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -132,7 +134,93 @@ export default function VisitDrawer({ visit, review, onClose }: Props) {
             </ol>
           </section>
         )}
+
+        <TeamNotes visitId={visit.visit_id} user={user} />
       </aside>
     </div>
+  );
+}
+
+// [개발 > 협업] 팀 내부 메모 — 같은 팀만 보이고, 다른 팀에는 보이지 않습니다.
+function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
+  const [notes, setNotes] = useState<TeamNote[] | null>(null);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    setNotes(null);
+    api.notes(visitId).then(
+      (r) => alive && setNotes(r.items),
+      () => alive && setError("팀 메모를 불러오지 못했어요."),
+    );
+    return () => { alive = false; };
+  }, [visitId, user?.dept]);
+
+  if (!user) {
+    return (
+      <section>
+        <h3 className="sub">팀 메모</h3>
+        <p className="muted small">로그인하면 우리 팀끼리만 보는 메모를 남길 수 있어요.</p>
+      </section>
+    );
+  }
+
+  const add = async () => {
+    if (!text.trim()) {
+      setError("메모 내용을 적어 주세요.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const n = await api.addNote(visitId, text.trim());
+      setNotes((prev) => [n, ...(prev ?? [])]);
+      setText("");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "메모를 저장하지 못했어요.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    try {
+      await api.deleteNote(id);
+      setNotes((prev) => (prev ?? []).filter((n) => n.id !== id));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "메모를 지우지 못했어요.");
+    }
+  };
+
+  return (
+    <section className={`team-notes dept-${user.dept}`}>
+      <h3 className="sub">{user.dept_name} 팀 메모 <span className="muted small">· 우리 팀만 보여요</span></h3>
+      {notes === null ? (
+        <p className="muted small" aria-busy="true">불러오는 중…</p>
+      ) : notes.length === 0 ? (
+        <p className="muted small">아직 메모가 없어요.</p>
+      ) : (
+        <ul className="note-list">
+          {notes.map((n) => (
+            <li key={n.id}>
+              <div className="note-meta">
+                <span className="muted small">{n.author} · {stamp(n.created_at)}</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => remove(n.id)} aria-label="메모 지우기">지우기</button>
+              </div>
+              <p>{n.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <label className="field">
+        <span>새 메모</span>
+        <textarea rows={2} maxLength={500} value={text} onChange={(e) => { setText(e.target.value); setError(null); }} placeholder="팀 내부에서만 공유할 내용" />
+      </label>
+      {error && <p className="text-danger small" role="alert">{error}</p>}
+      <button className="btn btn-sm" onClick={add} disabled={saving}>{saving ? "저장 중…" : "팀 메모 남기기"}</button>
+    </section>
   );
 }

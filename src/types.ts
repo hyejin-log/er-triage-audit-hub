@@ -105,3 +105,13 @@ export interface User {
   kind: "demo" | "email";
   email: string | null;
 }
+
+// [개발 > 협업] 팀 내부 메모 — 같은 부서만 읽고 씁니다.
+export interface TeamNote {
+  id: number;
+  visit_id: string;
+  dept: DeptCode;
+  author: string;
+  body: string;
+  created_at: string;
+}
