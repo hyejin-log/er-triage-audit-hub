@@ -68,7 +68,8 @@ async def runtime_error_handler(_, exc: RuntimeError):
 # ── 조회 ─────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"ok": True, "store": store.backend_name(), "visits": len(audit_result()["visits"])}
+    db = store.ping()
+    return {"ok": db.get("db_ok") is not False, "visits": len(audit_result()["visits"]), **db}
 
 
 @app.get("/api/summary")

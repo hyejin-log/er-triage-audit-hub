@@ -99,7 +99,7 @@ npm run dev
    ```
 2. Vercel → **Add New Project** → 저장소 선택 → 설정은 `vercel.json`이 잡아 줍니다.
 3. (선택) Vercel 환경 변수: `ANTHROPIC_API_KEY`, `DATABASE_URL`.
-   Neon을 쓰면 `db/schema.sql`을 먼저 실행하세요.
+   Neon은 Vercel Storage에서 만들면 `DATABASE_URL`이 자동으로 들어가고, 테이블은 앱이 첫 연결 때 만듭니다.
 4. 이후 `develop`에 푸시하면 Preview, `main`에 병합하면 운영에 배포됩니다.
 
 ## 다음 단계

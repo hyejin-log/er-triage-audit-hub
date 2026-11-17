@@ -1,8 +1,11 @@
 """
 [개발 > DB구축] 담당자 결정(리뷰) 저장소
 
-- DATABASE_URL(Neon Postgres 등)이 있으면 reviews 테이블에 저장합니다. (db/schema.sql)
-- 없으면 메모리에 저장합니다. 서버리스 환경에서는 재시작 시 사라지므로
+- DATABASE_URL(Neon Postgres 등)이 있으면 reviews 테이블에 저장합니다.
+  Vercel의 Neon 연동이 넣어 주는 POSTGRES_URL 도 인식합니다.
+- 테이블은 첫 연결 때 자동으로 만듭니다(SCHEMA_SQL = db/schema.sql 과 같은 내용).
+  그래서 연결 문자열을 로컬로 옮겨 SQL을 직접 실행할 필요가 없습니다.
+- DB가 없으면 메모리에 저장합니다. 서버리스 환경에서는 재시작 시 사라지므로
   프론트엔드도 브라우저에 사본을 남깁니다.
 """
 from __future__ import annotations
@@ -17,10 +20,30 @@ log = logging.getLogger("er-audit.store")
 
 _memory: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
+_schema_ready = False
+
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS reviews (
+    visit_id    TEXT PRIMARY KEY,
+    decision    TEXT NOT NULL CHECK (decision IN ('적정 확인', '재분류 확정', '소명 요청')),
+    note        TEXT NOT NULL DEFAULT '',
+    reviewer    TEXT NOT NULL,
+    decided_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS review_log (
+    id          BIGSERIAL PRIMARY KEY,
+    visit_id    TEXT NOT NULL,
+    decision    TEXT NOT NULL,
+    note        TEXT NOT NULL DEFAULT '',
+    reviewer    TEXT NOT NULL,
+    logged_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_review_log_visit ON review_log (visit_id, logged_at DESC);
+"""
 
 
 def _db_url() -> str | None:
-    return os.getenv("DATABASE_URL") or None
+    return os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or None
 
 
 def backend_name() -> str:
@@ -28,9 +51,33 @@ def backend_name() -> str:
 
 
 def _connect():
+    global _schema_ready
     import psycopg  # 지연 import: DB를 안 쓰면 설치하지 않아도 됩니다.
 
-    return psycopg.connect(_db_url(), connect_timeout=5)
+    conn = psycopg.connect(_db_url(), connect_timeout=8)
+    if not _schema_ready:
+        with _lock:
+            if not _schema_ready:
+                with conn.cursor() as cur:
+                    cur.execute(SCHEMA_SQL)
+                conn.commit()
+                _schema_ready = True
+                log.info("reviews 스키마 확인 완료")
+    return conn
+
+
+def ping() -> dict[str, Any]:
+    """[유지보수 > 장애 대응] /api/health 에서 DB 연결 상태를 확인합니다."""
+    if not _db_url():
+        return {"store": "memory", "db_ok": None}
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM reviews")
+            (count,) = cur.fetchone()
+        return {"store": "postgres", "db_ok": True, "reviews": count}
+    except Exception as exc:
+        log.error("DB 연결 확인 실패: %s", type(exc).__name__)
+        return {"store": "postgres", "db_ok": False, "error": "DB에 연결하지 못했습니다."}
 
 
 def list_reviews() -> dict[str, dict[str, Any]]:
