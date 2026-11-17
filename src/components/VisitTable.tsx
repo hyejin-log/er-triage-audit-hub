@@ -1,5 +1,6 @@
 // [개발 > 프론트엔드] 전체 내원 목록 — 상태·구역 필터, 검색
 import { useMemo, useState } from "react";
+import { ApiError, downloadExport } from "../api";
 import type { Review, Status, Visit } from "../types";
 import { clock, deptName, duration, STAGE_LABEL, STATUS_LABEL } from "../format";
 
@@ -14,6 +15,8 @@ export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
   const [status, setStatus] = useState<"all" | Status>("all");
   const [zone, setZone] = useState("all");
   const [q, setQ] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -31,8 +34,25 @@ export default function VisitTable({ visits, reviews, zones, onOpen }: Props) {
         <div>
           <h1 className="page-title">전체 내원</h1>
           <p className="muted">{rows.length}건 표시 · 행을 누르면 타임라인이 열립니다.</p>
+          {exportError && <p className="text-danger small" role="alert">{exportError}</p>}
         </div>
-        <a className="btn" href="/api/export.xlsx">엑셀로 내보내기</a>
+        <button
+          className="btn"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true);
+            setExportError(null);
+            try {
+              await downloadExport();
+            } catch (e) {
+              setExportError(e instanceof ApiError ? e.message : "엑셀을 만들지 못했어요.");
+            } finally {
+              setExporting(false);
+            }
+          }}
+        >
+          {exporting ? "만드는 중…" : "엑셀로 내보내기"}
+        </button>
       </div>
 
       <div className="filters card">

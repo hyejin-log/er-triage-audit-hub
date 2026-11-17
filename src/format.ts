@@ -66,3 +66,11 @@ export function median(values: number[]): number | null {
 export function pct(n: number, d: number): number {
   return d ? Math.round((n / d) * 100) : 0;
 }
+
+/** 받침에 맞춰 '로/으로'를 붙입니다. (ㄹ 받침과 받침 없음 → 로) */
+export function withRo(word: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return `${word}로`;
+  const jong = code % 28;
+  return `${word}${jong === 0 || jong === 8 ? "로" : "으로"}`;
+}

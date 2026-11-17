@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError, setAuthToken } from "./api";
 import { supabase } from "./supabase";
-import type { Decision, DeptCode, Review, Rule, Summary, User, Visit } from "./types";
+import type { Decision, DeptCode, Progress, Review, Rule, Summary, User, Visit } from "./types";
 import { safeStorage, saveStorage } from "./format";
 import AuthBar from "./components/AuthBar";
 import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
+import Landing from "./components/Landing";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -21,6 +22,9 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("overview");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [visitsLoaded, setVisitsLoaded] = useState(false);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [rules, setRules] = useState<Record<string, Rule>>({});
   const [reviews, setReviews] = useState<Record<string, Review>>({});
   const [storeName, setStoreName] = useState<string>("");
@@ -54,18 +58,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // 1) 저장된 데모 토큰 복원
-    const demoToken = safeStorage<string | null>(DEMO_TOKEN_KEY, null);
-    if (demoToken) {
-      adoptToken(demoToken, true).then((me) => {
+    let cancelled = false;
+    // 저장된 로그인(데모 토큰 → Supabase 세션)을 먼저 복원하고 나서 화면을 정합니다.
+    (async () => {
+      const demoToken = safeStorage<string | null>(DEMO_TOKEN_KEY, null);
+      if (demoToken) {
+        const me = await adoptToken(demoToken, true);
         if (!me) saveStorage(DEMO_TOKEN_KEY, null);
-      });
-    }
-    // 2) Supabase 이메일 세션
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session && !demoToken) adoptToken(data.session.access_token, true);
-    });
+        else {
+          if (!cancelled) setAuthReady(true);
+          return;
+        }
+      }
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) await adoptToken(data.session.access_token, true);
+      }
+      if (!cancelled) setAuthReady(true);
+    })();
+    if (!supabase) return () => { cancelled = true; };
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         saveStorage(DEMO_TOKEN_KEY, null);
@@ -79,7 +90,10 @@ export default function App() {
         }
       }
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, [adoptToken]);
 
   const demoLogin = useCallback(
@@ -98,11 +112,27 @@ export default function App() {
     if (supabase) await supabase.auth.signOut();
     setAuthToken(null);
     setUser(null);
+    setTab("overview");
+    setSelected(null);
     setToast("로그아웃했어요");
   }, []);
 
   // ── 데이터 ─────────────────────────────────────────────────────────
+  // 공개: 전체 집계(요약·진행 건수)와 감사 기준 / 로그인 후: 내원 목록과 결정 기록
+  const loadPublic = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const [s, r] = await Promise.all([api.summary(), api.rules()]);
+      setSummary(s);
+      setRules(r);
+    } catch (e) {
+      setLoadError(e instanceof ApiError ? e.message : "데이터를 불러오지 못했어요.");
+    }
+    api.progress().then(setProgress, () => setProgress({ available: false, flagged: 0, undecided: 0, requested: 0, answered: 0, closed: 0 }));
+  }, []);
+
   const loadReviews = useCallback(async () => {
+    if (!user) return;
     try {
       const rv = await api.reviews();
       setStoreName(rv.store);
@@ -110,25 +140,32 @@ export default function App() {
     } catch {
       setStoreName("unavailable");
     }
-  }, []);
-
-  const load = useCallback(async () => {
-    setLoadError(null);
-    try {
-      const [s, v, r] = await Promise.all([api.summary(), api.visits(), api.rules()]);
-      setSummary(s);
-      setVisits(v.items);
-      setRules(r);
-    } catch (e) {
-      setLoadError(e instanceof ApiError ? e.message : "데이터를 불러오지 못했어요.");
-      return;
-    }
-    await loadReviews();
-  }, [loadReviews]);
+  }, [user]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadPublic();
+  }, [loadPublic]);
+
+  // 로그인하면 내원 목록을 불러오고, 로그아웃하면 지웁니다.
+  useEffect(() => {
+    if (!user) {
+      setVisits([]);
+      setReviews({});
+      setVisitsLoaded(false);
+      api.progress().then(setProgress, () => undefined);
+      return;
+    }
+    let alive = true;
+    api.visits().then(
+      (v) => {
+        if (!alive) return;
+        setVisits(v.items);
+        setVisitsLoaded(true);
+      },
+      (e) => alive && setLoadError(e instanceof ApiError ? e.message : "내원 목록을 불러오지 못했어요."),
+    );
+    return () => { alive = false; };
+  }, [user]);
 
   // 다른 부서가 바꾼 진행 상황을 반영하도록 탭을 바꾸거나 화면으로 돌아오면 다시 읽습니다.
   useEffect(() => {
@@ -239,6 +276,7 @@ export default function App() {
         </div>
       </header>
 
+      {user && (
       <nav className="tabs" role="tablist" aria-label="화면 전환">
         {tabs.map((t) => (
           <button
@@ -253,15 +291,18 @@ export default function App() {
           </button>
         ))}
       </nav>
+      )}
 
       <main className="content">
         {loadError ? (
           <div className="error-box" role="alert">
             <strong>데이터를 불러오지 못했어요</strong>
             <p>{loadError}</p>
-            <button className="btn" onClick={load}>다시 불러오기</button>
+            <button className="btn" onClick={loadPublic}>다시 불러오기</button>
           </div>
-        ) : !summary ? (
+        ) : authReady && !user ? (
+          <Landing summary={summary} progress={progress} onDemoLogin={demoLogin} />
+        ) : !authReady || !visitsLoaded || !summary ? (
           <div className="skeleton-grid" aria-busy="true">
             <div className="skeleton" /><div className="skeleton" /><div className="skeleton" />
           </div>

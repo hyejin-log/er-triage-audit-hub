@@ -1,5 +1,5 @@
 // [개발 > 프론트엔드] API 클라이언트 — 오류는 사용자가 읽을 수 있는 문장으로 바꿔서 던집니다.
-import type { Decision, DeptCode, Rationale, Review, Rule, Summary, TeamNote, User, Visit } from "./types";
+import type { Decision, DeptCode, Progress, Rationale, Review, Rule, Summary, TeamNote, User, Visit } from "./types";
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0) {
@@ -44,6 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   summary: () => request<Summary>("/api/summary"),
+  progress: () => request<Progress>("/api/progress"),
   visits: () => request<{ count: number; items: Visit[] }>("/api/visits"),
   rules: () => request<Record<string, Rule>>("/api/rules"),
   aiReview: (id: string) => request<Rationale>(`/api/visits/${encodeURIComponent(id)}/ai-review`, { method: "POST" }),
@@ -64,3 +65,22 @@ export const api = {
     request<TeamNote>("/api/notes", { method: "POST", body: JSON.stringify({ visit_id: visitId, body }) }),
   deleteNote: (id: number) => request<void>(`/api/notes/${id}`, { method: "DELETE" }),
 };
+
+// [개발 > 인증] 엑셀은 로그인 토큰이 필요해서 링크 대신 fetch 로 받아 저장합니다.
+export async function downloadExport(): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch("/api/export.xlsx", { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} });
+  } catch {
+    throw new ApiError("서버에 연결하지 못했어요.");
+  }
+  if (!res.ok) throw new ApiError(res.status === 401 ? "로그인해야 내려받을 수 있어요." : "엑셀을 만들지 못했어요.", res.status);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "er-triage-audit.xlsx";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

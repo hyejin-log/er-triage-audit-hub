@@ -92,6 +92,7 @@ def visits(
     status: Literal["all", "high", "medium", "normal"] = "all",
     zone: str | None = None,
     q: str | None = Query(default=None, max_length=50),
+    _user: User = Depends(require_user),  # [개발 > 인증] 내원 상세는 로그인한 팀만
 ):
     items = audit_result()["visits"]
     if status != "all":
@@ -110,12 +111,12 @@ def visits(
 
 
 @app.get("/api/visits/{visit_id}")
-def visit_detail(visit_id: str):
+def visit_detail(visit_id: str, _user: User = Depends(require_user)):
     return find_visit(visit_id)
 
 
 @app.post("/api/visits/{visit_id}/ai-review")
-def visit_ai_review(visit_id: str):
+def visit_ai_review(visit_id: str, _user: User = Depends(require_user)):
     return ai_rationale(find_visit(visit_id))
 
 
@@ -161,8 +162,23 @@ def _store_call(fn, *args):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.get("/api/progress")
+def progress():
+    """[공개] 로그인 전 소개 화면용 진행 집계 — 건별 내용 없이 숫자만."""
+    try:
+        items = store.list_reviews().values()
+    except store.StoreError:
+        return {"available": False}
+    flagged = sum(1 for v in audit_result()["visits"] if v["flags"])
+    by_stage = {"requested": 0, "answered": 0, "closed": 0}
+    for r in items:
+        by_stage[r.get("stage") or "closed"] = by_stage.get(r.get("stage") or "closed", 0) + 1
+    decided = sum(by_stage.values())
+    return {"available": True, "flagged": flagged, "undecided": max(flagged - decided, 0), **by_stage}
+
+
 @app.get("/api/reviews")
-def get_reviews():
+def get_reviews(_user: User = Depends(require_user)):
     return {"store": store.backend_name(), "items": _store_call(store.list_reviews)}
 
 
@@ -229,7 +245,7 @@ def remove_note(note_id: int, user: User = Depends(require_user)):
 
 # ── 내보내기 (이음 프로젝트와 같은 openpyxl 기반) ──────────────────────
 @app.get("/api/export.xlsx")
-def export_xlsx():
+def export_xlsx(_user: User = Depends(require_user)):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 

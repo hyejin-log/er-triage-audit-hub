@@ -115,3 +115,13 @@ export interface TeamNote {
   body: string;
   created_at: string;
 }
+
+// [공개] 로그인 전 소개 화면용 진행 집계
+export interface Progress {
+  available: boolean;
+  flagged: number;
+  undecided: number;
+  requested: number;
+  answered: number;
+  closed: number;
+}
