@@ -35,10 +35,10 @@ export function saveStorage(key: string, value: unknown): void {
 
 // [설계 > 사용자 시나리오] 부서와 진행 단계 표시
 export const DEPTS = [
-  { code: "QI", name: "QI팀", role: "감사·최종 판정" },
-  { code: "NURSING", name: "응급간호팀", role: "KTAS 분류" },
-  { code: "EM", name: "응급의학과", role: "진료" },
-  { code: "BED", name: "병상관리팀", role: "입원·병상" },
+  { code: "QI", name: "QI팀", role: "의료 질 점검·최종 판정" },
+  { code: "NURSING", name: "응급간호팀", role: "위급도 분류(KTAS)" },
+  { code: "EM", name: "응급의학과", role: "응급 진료" },
+  { code: "BED", name: "병상관리팀", role: "입원 병상 배정" },
 ] as const;
 
 export function deptName(code: string | null | undefined): string {
@@ -74,3 +74,28 @@ export function withRo(word: string): string {
   const jong = code % 28;
   return `${word}${jong === 0 || jong === 8 ? "로" : "으로"}`;
 }
+
+// [기획 > 사용자 이해] 처음 보는 사람을 위한 용어 풀이 — 화면 곳곳의 <Term> 과 첫 화면 용어 카드가 함께 씁니다.
+export const GLOSSARY = {
+  KTAS: {
+    term: "KTAS",
+    short: "응급환자 위급도 등급",
+    desc: "한국형 응급환자 분류도구. 응급실에 온 환자를 1~5등급으로 나눠 진료 순서를 정해요. 숫자가 작을수록 위급해요(1 소생 · 2 긴급 · 3 응급 · 4 준응급 · 5 비응급).",
+  },
+  QI: {
+    term: "QI팀",
+    short: "의료 질 관리팀",
+    desc: "Quality Improvement(의료 질 향상)팀. 진료가 병원 기준대로 이뤄졌는지 기록을 점검하고, 문제가 있으면 담당 부서에 설명을 요청해 개선하는 부서예요.",
+  },
+  SIGNAL: {
+    term: "감사 신호",
+    short: "다시 볼 필요가 있는 기록",
+    desc: "자동 규칙이 찾아낸 확인 대상이에요. 예: 응급실에 24시간 넘게 머묾, 근거 없이 위급도를 낮춤, 활력징후에 비해 등급이 낮음, 진료가 목표 시간보다 늦음.",
+  },
+  EXPLAIN: {
+    term: "소명",
+    short: "담당 팀의 사정 설명",
+    desc: "QI팀이 요청하면 그 건을 맡은 팀(응급간호팀·응급의학과·병상관리팀)이 당시 상황과 이유, 개선 계획을 적어 제출하는 것이에요.",
+  },
+} as const;
+export type GlossaryKey = keyof typeof GLOSSARY;

@@ -10,7 +10,7 @@ interface ContentProps {
   progress: Progress | null;
 }
 
-const FLOW = ["규칙 자동 감지", "AI 근거 제안", "QI팀 판정", "담당 팀 소명", "QI팀 확정"];
+const FLOW = ["규칙이 자동 점검", "AI가 근거 정리", "QI팀 판정", "담당 팀 설명(소명)", "QI팀 확정"];
 const STACK = "React · Vite · FastAPI · Neon Postgres · Supabase Auth · Vercel";
 
 /** 요약 본문 — 로그인 전 첫 화면 오른쪽 패널 */
@@ -23,8 +23,8 @@ export function BriefContent({ summary, progress }: ContentProps) {
       <section className="brief-row">
         <h3><Target className="ico" /> 문제</h3>
         <p>
-          응급실 과밀과 KTAS 분류 오류는 진료 지연으로 이어지는데, 감사는 기록을 한 건씩 넘겨 보는 수작업이에요.
-          무엇을 먼저 보고 누구에게 설명을 받을지가 흩어져 있어요.
+          응급실은 위급한 환자부터 봐야 하지만, 위급도를 잘못 매기거나 병상이 없어 오래 기다리는 일이 생겨요.
+          이런 건을 찾는 점검은 지금까지 기록을 한 건씩 넘겨 보는 수작업이었어요.
         </p>
       </section>
 
@@ -47,15 +47,15 @@ export function BriefContent({ summary, progress }: ContentProps) {
           <div className="brief-stats">
             <div>
               <b>{summary.total}→{flagged}건</b>
-              <span>검토 대상만 자동 선별 (범위 {100 - pct(flagged, summary.total)}% 축소)</span>
+              <span>다시 볼 기록만 자동으로 골라 사람이 볼 양을 {100 - pct(flagged, summary.total)}% 줄임</span>
             </div>
             <div>
               <b>{worst?.zone} {worst?.ratio}%</b>
-              <span>병상 {worst?.beds}개에 최대 {worst?.peak}명, 초과 {duration(worst?.over_minutes ?? 0)}</span>
+              <span>병상 {worst?.beds}개에 최대 {worst?.peak}명, 넘친 시간 {duration(worst?.over_minutes ?? 0)}</span>
             </div>
             <div>
-              <b>24시간+ {summary.los_buckets["24시간 초과"] ?? 0}명</b>
-              <span>평가 지표 위반 후보를 판정 전에 보류</span>
+              <b>24시간 넘게 {summary.los_buckets["24시간 초과"] ?? 0}명</b>
+              <span>응급실 평가 기준에 걸리는 환자를 먼저 표시</span>
             </div>
             <div>
               <b>{progress?.available ? `종결 ${progress.closed}/${progress.flagged}` : "-"}</b>

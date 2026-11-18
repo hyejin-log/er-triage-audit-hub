@@ -280,7 +280,7 @@ export default function App() {
               <strong>MediGuard ER</strong>
               <span className="brand-badge hide-sm">Clinical Audit Intelligence</span>
             </span>
-            <span className="brand-sub">응급실 중증도(KTAS) 적정성 감사 · AI 검증</span>
+            <span className="brand-sub">응급실 위급도 분류(KTAS)·대기 시간 점검</span>
           </div>
         </div>
         <div className="topbar-meta">
