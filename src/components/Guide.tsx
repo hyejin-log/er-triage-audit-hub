@@ -1,10 +1,8 @@
-// [기획 > 사용자 이해] 사용 안내 — 처음 쓰는 사람이 무엇을 어떤 순서로 하는지 한 화면에
-//   왼쪽: 전체 진행 흐름(내 팀 차례 강조) / 오른쪽: 우리 팀이 할 일(탭 이름 그대로) + 화면 색 읽는 법
+// [기획 > 사용자 이해] 업무 안내 탭: 처리 절차(담당 단계 강조), 부서별 업무 순서, 상태 표시
 import { ArrowRight, CheckCircle2, Cog, Users } from "lucide-react";
 import type { Tab } from "../App";
 import type { User } from "../types";
 import { DEPT_GUIDE, FLOW_STEPS, LEGEND, STAGE_PLAIN } from "../guide";
-import { josa } from "../format";
 
 interface Props {
   user: User;
@@ -29,20 +27,20 @@ export default function Guide({ user, onGo, onDone }: Props) {
     <div className="stack guide">
       <section className={`card guide-hero dept-${user.dept}`}>
         <div>
-          <p className="eyebrow">{user.dept_name} · 사용 안내</p>
-          <h1>{josa(user.dept_name, "은", "는")} <span className="dc">{g.role}</span>이에요</h1>
+          <p className="eyebrow">업무 안내</p>
+          <h1>{user.dept_name} 업무 안내 <span className="dc">{g.role}</span></h1>
           <p className="lead small">{g.does}</p>
         </div>
         <button className="btn btn-primary" onClick={onDone}>
-          알겠어요, 시작하기 <ArrowRight className="ico" />
+          업무 시작 <ArrowRight className="ico" />
         </button>
       </section>
 
       <div className="guide-grid">
         <section className="card">
           <div className="card-head">
-            <h2>전체 진행 흐름</h2>
-            <span className="muted small">하늘색 테두리가 {user.dept_name} 차례예요</span>
+            <h2>처리 절차</h2>
+            <span className="muted small">강조 표시: {user.dept_name} 담당 단계</span>
           </div>
           <ol className="flow-steps">
             {FLOW_STEPS.map((s) => (
@@ -67,8 +65,8 @@ export default function Guide({ user, onGo, onDone }: Props) {
         <div className="stack-sm">
           <section className="card">
             <div className="card-head">
-              <h2>{josa(user.dept_name, "이", "가")} 할 일</h2>
-              <span className="muted small">탭 이름을 누르면 바로 이동해요</span>
+              <h2>{user.dept_name} 업무 순서</h2>
+              <span className="muted small">탭 이름을 누르면 해당 화면으로 이동합니다</span>
             </div>
             <ol className="todo-steps">
               {g.steps.map((s, i) => (
@@ -84,7 +82,7 @@ export default function Guide({ user, onGo, onDone }: Props) {
           </section>
 
           <section className="card">
-            <h2>화면 색과 상태 읽는 법</h2>
+            <h2>상태 표시</h2>
             <ul className="legend-list">
               {LEGEND.map((l) => (
                 <li key={l.label}><span className={`lg-dot ${l.tone}`} /><b>{l.label}</b><span className="muted small">{l.text}</span></li>

@@ -1,6 +1,8 @@
 // [개발 > 프론트엔드] 확인 필요 / 주의 관찰 큐 — High Risk 카드 + AI 근거 제안 + QI팀 결정
 // 소명이 제출된 건은 다시 이 큐로 올라와 QI팀이 최종 확정합니다.
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Wand2 } from "lucide-react";
+import { demoDecisionNote } from "../demoText";
 import { api, ApiError } from "../api";
 import type { Decision, Rationale, Review, User, Visit } from "../types";
 import { clock, deptName, duration, josa, stamp } from "../format";
@@ -31,7 +33,7 @@ export default function ReviewQueue({ visits, reviews, user, onDecide, onUndo, o
   if (visits.length === 0) {
     return (
       <div className="empty card">
-        <strong>{tone === "high" ? "확인할 High Risk 건이 없어요" : "주의 관찰 건이 없어요"}</strong>
+        <strong>{tone === "high" ? "확인 필요 건이 없습니다" : "주의 관찰 건이 없습니다"}</strong>
         <p className="muted">감사 규칙에 걸린 내원이 없습니다.</p>
       </div>
     );
@@ -52,14 +54,14 @@ export default function ReviewQueue({ visits, reviews, user, onDecide, onUndo, o
         {!isQi && (
           <div className="role-note">
             {user
-              ? <><b>{josa(user.dept_name, "은", "는")}</b> 보기만 할 수 있어요. 판정은 QI팀이, 소명은 ‘{user.dept_name} 소명’ 탭에서 합니다.</>
-              : <>오른쪽 위 <b>로그인</b>에서 <b>QI팀</b>으로 들어가면 결정을 기록할 수 있어요.</>}
+              ? <><b>{josa(user.dept_name, "은", "는")}</b> 보기만 할 수 있습니다. 판정은 QI팀이, 소명은 ‘{user.dept_name} 소명’ 탭에서 합니다.</>
+              : <>오른쪽 위 <b>로그인</b>에서 <b>QI팀</b>으로 들어가면 결정을 기록할 수 있습니다.</>}
           </div>
         )}
       </div>
 
       {open.length === 0 ? (
-        <div className="empty card"><strong>QI팀이 판정할 건이 없어요</strong><p className="muted">소명 요청중인 건은 부서 답변이 오면 다시 여기에 올라와요.</p></div>
+        <div className="empty card"><strong>QI팀이 판정할 건이 없습니다</strong><p className="muted">소명 요청중인 건은 부서 답변이 오면 다시 여기에 다시 표시됩니다.</p></div>
       ) : (
         <div className="cards">
           {open.map((v) => (
@@ -137,6 +139,7 @@ function RiskCard({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const noteId = useId();
 
   const askAi = async () => {
     setLoading(true);
@@ -146,7 +149,7 @@ function RiskCard({
       setRationale(r);
       if (!answered || r.suggested_action !== "소명 요청") setDecision((d) => d ?? r.suggested_action);
     } catch (e) {
-      setAiError(e instanceof ApiError ? e.message : "근거를 불러오지 못했어요.");
+      setAiError(e instanceof ApiError ? e.message : "근거를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -154,7 +157,7 @@ function RiskCard({
 
   const submit = async () => {
     if (!decision) return setFormError("결정을 골라 주세요.");
-    if (decision !== "적정 확인" && !note.trim()) return setFormError("재분류·소명 요청은 메모가 필요해요.");
+    if (decision !== "적정 확인" && !note.trim()) return setFormError("재분류·소명 요청은 메모가 필요합니다.");
     setFormError(null);
     setSaving(true);
     await onDecide(visit.visit_id, decision, note.trim());
@@ -167,9 +170,9 @@ function RiskCard({
       <header className="risk-head">
         <div>
           <span className={`pill ${tone === "high" ? "pill-danger" : "pill-warn"}`}>
-            {tone === "high" ? "High Risk" : "주의"}
+            {tone === "high" ? "확인 필요" : "주의"}
           </span>
-          {answered && <span className="pill pill-accent">소명 제출 · 최종 확정 대기</span>}
+          {answered && <span className="pill pill-accent">소명 제출, 최종 판정 대기</span>}
           <h3>{visit.flags[0]?.title}</h3>
         </div>
         <button className="link" onClick={() => onOpen(visit)}>{visit.visit_id} 타임라인 →</button>
@@ -207,13 +210,13 @@ function RiskCard({
       <div className="ai-box">
         {!rationale ? (
           <button className="btn btn-sm" onClick={askAi} disabled={loading}>
-            {loading ? "근거 정리 중…" : "AI 근거 제안 받기"}
+            {loading ? "불러오는 중…" : "근거 요약"}
           </button>
         ) : (
           <div className="ai-result">
             <div className="ai-meta">
-              <span className="pill pill-muted">{rationale.source === "claude" ? "Claude 제안" : "규칙 엔진 제안"}</span>
-              <span className="muted small">제안: <b>{rationale.suggested_action}</b></span>
+              <span className="pill pill-muted">{rationale.source === "claude" ? "AI 요약" : "규칙 요약"}</span>
+              <span className="muted small">권장 조치: <b>{rationale.suggested_action}</b></span>
             </div>
             <p>{rationale.summary}</p>
             {rationale.checklist.length > 0 && (
@@ -245,25 +248,31 @@ function RiskCard({
             ))}
           </div>
           {decision === "소명 요청" && (
-            <p className="muted small">→ <b>{deptName(visit.owner_dept)}</b>에 소명을 요청해요.</p>
+            <p className="muted small">→ <b>{deptName(visit.owner_dept)}</b>에 소명을 요청합니다.</p>
           )}
-          <label className="field">
-            <span>메모 {decision && decision !== "적정 확인" ? "(필수)" : "(선택)"}</span>
+          <div className="field">
+            <div className="field-head">
+              <label htmlFor={noteId}>메모 {decision && decision !== "적정 확인" ? "(필수)" : "(선택)"}</label>
+              <button type="button" className="demo-fill" onClick={() => { setNote(demoDecisionNote(visit, decision)); setFormError(null); }}>
+                <Wand2 className="ico" />데모 문구 넣기
+              </button>
+            </div>
             <textarea
+              id={noteId}
               rows={2}
               maxLength={500}
               value={note}
               onChange={(e) => { setNote(e.target.value); setFormError(null); }}
               placeholder={decision === "소명 요청" ? "부서에 요청할 내용" : "확인한 기록, 판단 근거"}
             />
-          </label>
+          </div>
           {formError && <p className="text-danger small" role="alert">{formError}</p>}
           <button className="btn btn-primary" onClick={submit} disabled={saving}>
             {saving ? "저장 중…" : decision === "소명 요청" ? `${deptName(visit.owner_dept)}에 소명 요청하기` : decision ? `${decision}로 기록하기` : "결정 기록하기"}
           </button>
         </fieldset>
       ) : (
-        <p className="muted small locked">QI팀으로 로그인하면 결정할 수 있어요.</p>
+        <p className="muted small locked">QI팀으로 로그인하면 결정할 수 있습니다.</p>
       )}
     </article>
   );

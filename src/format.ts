@@ -35,8 +35,8 @@ export function saveStorage(key: string, value: unknown): void {
 
 // [설계 > 사용자 시나리오] 부서와 진행 단계 표시
 export const DEPTS = [
-  { code: "QI", name: "QI팀", role: "의료 질 점검·최종 판정" },
-  { code: "NURSING", name: "응급간호팀", role: "위급도 분류(KTAS)" },
+  { code: "QI", name: "QI팀", role: "의료 질 향상 관리" },
+  { code: "NURSING", name: "응급간호팀", role: "중증도 분류(KTAS)" },
   { code: "EM", name: "응급의학과", role: "응급 진료" },
   { code: "BED", name: "병상관리팀", role: "입원 병상 배정" },
 ] as const;
@@ -75,27 +75,27 @@ export function withRo(word: string): string {
   return `${word}${jong === 0 || jong === 8 ? "로" : "으로"}`;
 }
 
-// [기획 > 사용자 이해] 처음 보는 사람을 위한 용어 풀이 — 화면 곳곳의 <Term> 과 첫 화면 용어 카드가 함께 씁니다.
+// [기획 > 사용자 이해] 용어 설명 (화면의 <Term> 툴팁과 첫 화면 용어 목록에서 사용)
 export const GLOSSARY = {
   KTAS: {
     term: "KTAS",
-    short: "응급환자 위급도 등급",
-    desc: "한국형 응급환자 분류도구. 응급실에 온 환자를 1~5등급으로 나눠 진료 순서를 정해요. 숫자가 작을수록 위급해요(1 소생 · 2 긴급 · 3 응급 · 4 준응급 · 5 비응급).",
+    short: "응급환자 중증도 분류 기준",
+    desc: "한국형 응급환자 분류도구(Korean Triage and Acuity Scale). 내원 환자를 1~5등급으로 분류해 진료 순서를 정합니다. 1 소생, 2 긴급, 3 응급, 4 준응급, 5 비응급.",
   },
   QI: {
     term: "QI팀",
-    short: "의료 질 관리팀",
-    desc: "Quality Improvement(의료 질 향상)팀. 진료가 병원 기준대로 이뤄졌는지 기록을 점검하고, 문제가 있으면 담당 부서에 설명을 요청해 개선하는 부서예요.",
+    short: "의료 질 향상 관리팀",
+    desc: "Quality Improvement팀. 진료가 병원 기준에 맞게 이뤄졌는지 기록을 검토하고, 문제가 있으면 담당 부서에 소명을 요청해 개선 조치를 관리합니다.",
   },
   SIGNAL: {
-    term: "감사 신호",
-    short: "다시 볼 필요가 있는 기록",
-    desc: "자동 규칙이 찾아낸 확인 대상이에요. 예: 응급실에 24시간 넘게 머묾, 근거 없이 위급도를 낮춤, 활력징후에 비해 등급이 낮음, 진료가 목표 시간보다 늦음.",
+    term: "검토 대상",
+    short: "감사 규칙에 해당한 기록",
+    desc: "응급실 24시간 초과 체류, 근거 없는 하향 재분류, 활력징후 대비 낮은 등급, 진료 목표 시간 초과 등 감사 규칙에 걸린 기록입니다.",
   },
   EXPLAIN: {
     term: "소명",
-    short: "담당 팀의 사정 설명",
-    desc: "QI팀이 요청하면 그 건을 맡은 팀(응급간호팀·응급의학과·병상관리팀)이 당시 상황과 이유, 개선 계획을 적어 제출하는 것이에요.",
+    short: "담당 부서의 경위 설명",
+    desc: "QI팀 요청에 따라 담당 부서가 당시 상황, 사유, 개선 계획을 작성해 제출하는 절차입니다.",
   },
 } as const;
 export type GlossaryKey = keyof typeof GLOSSARY;

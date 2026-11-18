@@ -54,7 +54,7 @@ export default function VisitTable({ visits, reviews, zones, hospital, onOpen }:
     try {
       await downloadExport();
     } catch (e) {
-      setExportError(e instanceof ApiError ? e.message : "엑셀을 만들지 못했어요.");
+      setExportError(e instanceof ApiError ? e.message : "엑셀을 만들지 못했습니다.");
     } finally {
       setExporting(false);
     }
@@ -64,8 +64,8 @@ export default function VisitTable({ visits, reviews, zones, hospital, onOpen }:
     <div className="stack">
       <div className="queue-head">
         <div>
-          <h1 className="page-title">응급 내원 트리아지 · 감사 로그</h1>
-          <p className="muted">{rows.length}건 표시 · 행을 누르면 AI 감사 인스펙터에서 검증 결과를 볼 수 있어요.</p>
+          <h1 className="page-title">전체 내원</h1>
+          <p className="muted">{rows.length}건 표시 · 행을 선택하면 오른쪽에 점검 결과가 표시됩니다.</p>
           {exportError && <p className="text-danger small" role="alert">{exportError}</p>}
         </div>
         <button className="btn" disabled={exporting} onClick={exportXlsx}>
@@ -105,7 +105,7 @@ export default function VisitTable({ visits, reviews, zones, hospital, onOpen }:
 
       {rows.length === 0 ? (
         <div className="empty card">
-          <strong>조건에 맞는 내원이 없어요</strong>
+          <strong>조건에 맞는 내원이 없습니다</strong>
           <button className="btn btn-sm" onClick={() => { setStatus("all"); setZone("all"); setKtas("all"); setQ(""); }}>필터 초기화</button>
         </div>
       ) : (
@@ -139,7 +139,7 @@ export default function VisitTable({ visits, reviews, zones, hospital, onOpen }:
             </table>
           </div>
 
-          <aside className="card inspector" ref={inspectorRef} aria-label="AI 감사 인스펙터">
+          <aside className="card inspector" ref={inspectorRef} aria-label="감사 검토">
             {selected && <Inspector key={selected.visit_id} visit={selected} review={reviews[selected.visit_id]} hospital={hospital} onOpen={onOpen} />}
           </aside>
         </div>
@@ -210,7 +210,7 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
     try {
       setAi(await api.aiReview(visit.visit_id));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "AI 검증을 실행하지 못했어요.");
+      setError(e instanceof ApiError ? e.message : "AI 검증을 실행하지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -219,12 +219,12 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
   return (
     <div className="inspector-body">
       <div className="inspector-head">
-        <h2><Cpu className="ico accent" /> AI 감사 인스펙터</h2>
+        <h2><Cpu className="ico accent" /> 감사 검토</h2>
         <span className="id-chip mono">{visit.visit_id}</span>
       </div>
 
       <div className="inspector-patient">
-        <span className="eyebrow-sm">선택된 내원</span>
+        <span className="eyebrow-sm">선택한 내원</span>
         <b>{visit.age}세 {visit.sex === "M" ? "남" : "여"} · {visit.chief_complaint} — KTAS {visit.ktas_final}</b>
         <p className="small muted">
           {visit.arrival_mode} · {visit.zone} · {visit.disposition}
@@ -233,7 +233,7 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
       </div>
 
       <div>
-        <span className="eyebrow-sm">감사 검증 체크리스트</span>
+        <span className="eyebrow-sm">점검 항목</span>
         <ul className="checks">
           {checks.map((c) => {
             const Icon = CHECK_ICON[c.state];
@@ -248,19 +248,19 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
       </div>
 
       <div>
-        <span className="eyebrow-sm">AI 근거 제안</span>
+        <span className="eyebrow-sm">근거 요약</span>
         {loading ? (
-          <p className="muted small" aria-busy="true">근거를 정리하는 중…</p>
+          <p className="muted small" aria-busy="true">불러오는 중…</p>
         ) : ai ? (
           <div className="ai-mini">
             <div className="ai-meta">
-              <span className="pill pill-muted">{ai.source === "claude" ? "Claude" : "규칙 엔진"}</span>
-              <span className="small">제안: <b>{ai.suggested_action}</b></span>
+              <span className="pill pill-muted">{ai.source === "claude" ? "AI 요약" : "규칙 요약"}</span>
+              <span className="small">권장 조치: <b>{ai.suggested_action}</b></span>
             </div>
             <p className="small">{ai.summary}</p>
           </div>
         ) : (
-          <button className="btn btn-sm" onClick={runAi}>AI 근거 제안 받기</button>
+          <button className="btn btn-sm" onClick={runAi}>근거 요약</button>
         )}
         {error && <p className="text-danger small" role="alert">{error}</p>}
       </div>
@@ -277,7 +277,7 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
             try {
               printReport(buildReportHtml(visit, review, checks, hospital));
             } catch {
-              setError("보고서를 만들지 못했어요. 브라우저 인쇄가 막혀 있는지 확인해 주세요.");
+              setError("보고서를 만들지 못했습니다. 브라우저 인쇄가 막혀 있는지 확인해 주세요.");
             }
           }}
         >
@@ -287,7 +287,7 @@ function Inspector({ visit, review, hospital, onOpen }: { visit: Visit; review?:
           <History className="ico" />&nbsp;타임라인 · 팀 메모 열기
         </button>
         <button className="btn btn-block" onClick={runAi} disabled={loading}>
-          <RefreshCw className="ico" />&nbsp;{ai ? "AI 재검증 실행" : "AI 검증 실행"}
+          <RefreshCw className="ico" />&nbsp;{ai ? "다시 요약" : "근거 요약"}
         </button>
       </div>
     </div>

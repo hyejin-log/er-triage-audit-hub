@@ -31,7 +31,7 @@ export default function TeamHome(props: Props) {
           <button className="link" onClick={onShowHospital}>병원 전체 현황 보기 →</button>
         </div>
         <h1>{HEADLINE[user.dept]}</h1>
-        <p className="lead small">결정·소명 기록은 모든 팀이 함께 봐요. 아래 지표와 팀 메모는 {user.dept_name} 기준이에요. 점선 밑줄 용어에 마우스를 올리면 뜻이 나와요.</p>
+        <p className="lead small">판정과 소명 기록은 전 부서가 공유합니다. 아래 지표와 팀 메모는 {user.dept_name} 기준입니다.</p>
         <div className="hero-actions">
           <button className={`btn ${waiting ? "btn-danger" : ""}`} onClick={() => onGo("explain")}>
             답변할 소명 {waiting}건 {waiting ? "처리하기 →" : "· 대기 없음"}
@@ -54,9 +54,9 @@ export default function TeamHome(props: Props) {
 
 const HEADLINE: Record<DeptCode, string> = {
   QI: "",
-  NURSING: "분류가 정확했는지, 재분류마다 근거가 남았는지 확인해요.",
-  EM: "KTAS 등급별로 목표 시간 안에 진료했는지 확인해요.",
-  BED: "구역이 얼마나 붐볐고, 입원 환자가 병상을 얼마나 기다렸는지 확인해요.",
+  NURSING: "중증도 분류 현황",
+  EM: "진료 대기 현황",
+  BED: "구역 혼잡도와 병상 배정 현황",
 };
 
 // ── 응급간호팀 ─────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ function EmBoard({ visits }: Props) {
       </section>
       <div className="grid-2">
         <section className="card">
-          <div className="card-head"><h2>KTAS 등급별 진료 목표 달성</h2><span className="muted">목표 + 5분 이내를 달성으로 봐요</span></div>
+          <div className="card-head"><h2>KTAS 등급별 진료 목표 달성</h2><span className="muted">목표 시간 + 5분 이내를 준수로 집계</span></div>
           <ul className="rate-list">
             {byKtas.map((r) => (
               <li key={r.k}>
@@ -293,7 +293,7 @@ function TeamSignals({ visits, reviews, dept, onOpen }: { visits: Visit[]; revie
     <section className="card">
       <div className="card-head"><h2>{deptName(dept)} 담당 감사 신호</h2><span className="muted">{visits.length}건</span></div>
       {visits.length === 0 ? (
-        <p className="muted">담당 감사 신호가 없어요.</p>
+        <p className="muted">담당 감사 신호가 없습니다.</p>
       ) : (
         <ul className="signal-list">
           {visits.map((v) => {
@@ -320,7 +320,7 @@ function RecentNotes({ user, visits, onOpen }: { user: User; visits: Visit[]; on
     let alive = true;
     api.notes().then(
       (r) => alive && setNotes(r.items),
-      () => alive && setError("팀 메모를 불러오지 못했어요."),
+      () => alive && setError("팀 메모를 불러오지 못했습니다."),
     );
     return () => { alive = false; };
   }, [user.dept]);
@@ -328,11 +328,11 @@ function RecentNotes({ user, visits, onOpen }: { user: User; visits: Visit[]; on
 
   return (
     <section className="card">
-      <div className="card-head"><h2>최근 팀 메모</h2><span className="muted">{user.dept_name}만 보여요</span></div>
+      <div className="card-head"><h2>최근 팀 메모</h2><span className="muted">{user.dept_name} 전용</span></div>
       {error ? <p className="text-danger small">{error}</p> : notes === null ? (
         <p className="muted small" aria-busy="true">불러오는 중…</p>
       ) : notes.length === 0 ? (
-        <p className="muted">아직 팀 메모가 없어요. 내원 건의 타임라인을 열고 ‘팀 메모’에 남겨 보세요.</p>
+        <p className="muted">등록된 팀 메모가 없습니다. 기록 상세 화면에서 작성할 수 있습니다.</p>
       ) : (
         <ul className="note-list">
           {notes.slice(0, 6).map((n) => (

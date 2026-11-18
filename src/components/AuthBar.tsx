@@ -54,7 +54,7 @@ export default function AuthBar({ user, onDemoLogin, onLogout }: Props) {
       await onDemoLogin(dept);
       setOpen(false);
     } catch {
-      setError("데모 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setError("데모 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setBusy(null);
     }
@@ -78,8 +78,8 @@ export default function AuthBar({ user, onDemoLogin, onLogout }: Props) {
       setMailState("idle");
       setError(
         err.status === 429
-          ? "로그인 메일을 너무 자주 요청했어요. 잠시 후 다시 시도하거나 데모 로그인을 써 주세요."
-          : "로그인 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
+          ? "로그인 메일을 너무 자주 요청했습니다. 잠시 후 다시 시도하거나 데모 로그인을 써 주세요."
+          : "로그인 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
       return;
     }
@@ -95,8 +95,8 @@ export default function AuthBar({ user, onDemoLogin, onLogout }: Props) {
         <div className="auth-pop" role="dialog" aria-label="로그인">
           <div className="stack-sm">
             <div>
-              <strong>부서로 체험하기</strong>
-              <p className="muted small">메일 없이 바로 들어가요. 부서마다 할 수 있는 일이 달라요.</p>
+              <strong>부서별 데모 계정</strong>
+              <p className="muted small">별도 가입 없이 접속됩니다. 부서마다 화면과 권한이 다릅니다.</p>
             </div>
             <div className="demo-grid">
               {DEPTS.map((d) => (
@@ -119,7 +119,7 @@ export default function AuthBar({ user, onDemoLogin, onLogout }: Props) {
               <div className="divider"><span>또는 이메일로 로그인</span></div>
               {mailState === "sent" ? (
                 <>
-                  <p className="small"><b>메일함을 확인해 주세요.</b> {value.trim()}로 로그인 링크를 보냈어요.</p>
+                  <p className="small"><b>메일함을 확인해 주세요.</b> {value.trim()}로 로그인 링크를 보냈습니다.</p>
                   <button className="btn btn-ghost btn-sm" onClick={() => { setMailState("idle"); setValue(""); }}>다른 이메일로 받기</button>
                 </>
               ) : (
@@ -138,7 +138,7 @@ export default function AuthBar({ user, onDemoLogin, onLogout }: Props) {
                   <button className="btn" type="submit" disabled={mailState === "sending"}>
                     {mailState === "sending" ? "보내는 중…" : "로그인 링크 받기"}
                   </button>
-                  <p className="muted small">이메일 계정은 QI팀 권한으로 들어가요.</p>
+                  <p className="muted small">이메일 계정은 QI팀 권한으로 접속됩니다.</p>
                 </form>
               )}
             </div>

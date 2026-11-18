@@ -1,4 +1,4 @@
-// [기획 > 사용자 이해] 팀 홈 맨 위 설명 카드 — 우리 팀이 하는 일 + 지금 할 일 + 자세한 사용 안내 링크
+// [기획 > 사용자 이해] 부서 홈 상단 카드: 부서 역할, 처리할 건수, 업무 안내 바로가기
 import { BookOpen } from "lucide-react";
 import type { Tab } from "../App";
 import type { User } from "../types";
@@ -18,7 +18,7 @@ export default function RoleStrip({ user, todo, todoLabel, todoTab, onGo }: Prop
   return (
     <section className={`role-strip dept-${user.dept}`} aria-label={`${josa(user.dept_name, "이", "가")} 하는 일`}>
       <div className="rs-text">
-        <b>{user.dept_name} = {g.role}</b>
+        <b>{user.dept_name} <span className="rs-role">{g.role}</span></b>
         <span className="small muted">{g.does}</span>
       </div>
       <div className="rs-actions">
@@ -26,7 +26,7 @@ export default function RoleStrip({ user, todo, todoLabel, todoTab, onGo }: Prop
           {todoLabel} {todo}건 {todo ? "→" : "· 없음"}
         </button>
         <button className="btn btn-sm btn-ghost" onClick={() => onGo("guide")}>
-          <BookOpen className="ico" />&nbsp;사용 안내
+          <BookOpen className="ico" />&nbsp;업무 안내
         </button>
       </div>
     </section>

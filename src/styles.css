@@ -790,3 +790,14 @@ p { margin: 0; }
   .topbar .brand strong { white-space: nowrap; font-size: 15px; }
   .topbar .brand { gap: 8px; min-width: 0; }
 }
+
+/* [기획 > 시연] 데모 문구 넣기 버튼 */
+.field-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.field-head label { color: var(--c-text-2); font-weight: 600; font-size: 13px; }
+.demo-fill {
+  display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--c-accent); background: var(--c-accent-soft);
+  color: var(--c-accent-text); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.demo-fill:hover { border-style: solid; }
+.demo-fill .ico { width: 13px; height: 13px; }
+.rs-role { font-weight: 600; color: var(--c-text-2); font-size: 13px; margin-left: 6px; }

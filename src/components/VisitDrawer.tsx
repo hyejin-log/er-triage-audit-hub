@@ -1,5 +1,7 @@
 // [개발 > 프론트엔드] 내원 상세 — Triage → 진료 → 입원 결정 → 병상 배정 → 퇴실 타임라인
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Wand2 } from "lucide-react";
+import { demoTeamNote } from "../demoText";
 import { api, ApiError } from "../api";
 import type { Review, TeamNote, User, Visit } from "../types";
 import { clock, deptName, duration, STAGE_LABEL, STATUS_LABEL, stamp } from "../format";
@@ -147,6 +149,7 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const noteId = useId();
 
   useEffect(() => {
     if (!user) return;
@@ -154,7 +157,7 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
     setNotes(null);
     api.notes(visitId).then(
       (r) => alive && setNotes(r.items),
-      () => alive && setError("팀 메모를 불러오지 못했어요."),
+      () => alive && setError("팀 메모를 불러오지 못했습니다."),
     );
     return () => { alive = false; };
   }, [visitId, user?.dept]);
@@ -163,7 +166,7 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
     return (
       <section>
         <h3 className="sub">팀 메모</h3>
-        <p className="muted small">로그인하면 우리 팀끼리만 보는 메모를 남길 수 있어요.</p>
+        <p className="muted small">로그인하면 우리 팀끼리만 보는 메모를 남길 수 있습니다.</p>
       </section>
     );
   }
@@ -180,7 +183,7 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
       setNotes((prev) => [n, ...(prev ?? [])]);
       setText("");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "메모를 저장하지 못했어요.");
+      setError(e instanceof ApiError ? e.message : "메모를 저장하지 못했습니다.");
     } finally {
       setSaving(false);
     }
@@ -191,17 +194,17 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
       await api.deleteNote(id);
       setNotes((prev) => (prev ?? []).filter((n) => n.id !== id));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "메모를 지우지 못했어요.");
+      setError(e instanceof ApiError ? e.message : "메모를 지우지 못했습니다.");
     }
   };
 
   return (
     <section className={`team-notes dept-${user.dept}`}>
-      <h3 className="sub">{user.dept_name} 팀 메모 <span className="muted small">· 우리 팀만 보여요</span></h3>
+      <h3 className="sub">{user.dept_name} 팀 메모 <span className="muted small">· {user.dept_name}만 열람</span></h3>
       {notes === null ? (
         <p className="muted small" aria-busy="true">불러오는 중…</p>
       ) : notes.length === 0 ? (
-        <p className="muted small">아직 메모가 없어요.</p>
+        <p className="muted small">아직 메모가 없습니다.</p>
       ) : (
         <ul className="note-list">
           {notes.map((n) => (
@@ -215,10 +218,15 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
           ))}
         </ul>
       )}
-      <label className="field">
-        <span>새 메모</span>
-        <textarea rows={2} maxLength={500} value={text} onChange={(e) => { setText(e.target.value); setError(null); }} placeholder="팀 내부에서만 공유할 내용" />
-      </label>
+      <div className="field">
+        <div className="field-head">
+          <label htmlFor={noteId}>새 메모</label>
+          <button type="button" className="demo-fill" onClick={() => { setText(demoTeamNote(user.dept)); setError(null); }}>
+            <Wand2 className="ico" />데모 문구 넣기
+          </button>
+        </div>
+        <textarea id={noteId} rows={2} maxLength={500} value={text} onChange={(e) => { setText(e.target.value); setError(null); }} placeholder="팀 내부에서만 공유할 내용" />
+      </div>
       {error && <p className="text-danger small" role="alert">{error}</p>}
       <button className="btn btn-sm" onClick={add} disabled={saving}>{saving ? "저장 중…" : "팀 메모 남기기"}</button>
     </section>

@@ -10,9 +10,9 @@ interface Props {
 }
 
 const STORE_LABEL: Record<string, string> = {
-  postgres: "DB(Neon)에 저장 — 모든 팀이 같은 기록을 봐요",
+  postgres: "DB(Neon) 저장, 전 부서 공유",
   memory: "서버 메모리에 임시 저장(데모)",
-  unavailable: "저장소에 연결하지 못했어요",
+  unavailable: "저장소에 연결하지 못했습니다",
 };
 
 export default function RulesPanel({ rules, summary, storeName }: Props) {
@@ -22,23 +22,23 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
     <div className="stack">
       <div>
         <h1 className="page-title">감사 기준</h1>
-        <p className="muted">무엇을 기준으로 ‘다시 볼 기록’을 골라내는지 정리했어요.</p>
+        <p className="muted">검토 대상 선정 기준과 KTAS 등급별 진료 목표입니다.</p>
       </div>
 
       <section className="card">
         <div className="card-head">
-          <h2>KTAS 등급 — 응급실이 환자 순서를 정하는 기준</h2>
-          <span className="muted small">숫자가 작을수록 위급하고, 의사를 만나야 하는 목표 시간이 짧아요.</span>
+          <h2>KTAS 등급</h2>
+          <span className="muted small">숫자가 작을수록 위급하며 진료 목표 시간이 짧습니다.</span>
         </div>
         <p className="small ktas-intro">
-          응급실에 도착하면 간호사가 증상과 혈압·맥박·산소포화도 같은 <b>활력징후</b>를 보고 1~5등급 중 하나를 매겨요.
-          먼저 온 순서가 아니라 <b>위급한 순서</b>로 진료하기 위해서예요. 아래 예시는 이해를 돕기 위한 것이고, 실제 분류는 의료진이 종합해 판단해요.
+          내원 시 분류 간호사가 증상과 <b>활력징후</b>(혈압, 맥박, 호흡수, 산소포화도, 의식 수준)를 확인해 1~5등급으로 분류합니다.
+          진료는 도착 순서가 아니라 등급 순으로 진행됩니다. 예시는 참고용이며 실제 분류는 의료진이 판단합니다.
         </p>
         <div className="table-wrap">
           <table className="table ktas-table">
             <thead>
               <tr>
-                <th>등급</th><th>쉬운 뜻</th><th>이런 경우 (예시)</th><th>의사 진료 목표</th><th>주로 가는 구역</th><th className="num">이번 데이터</th>
+                <th>등급</th><th>상태</th><th>예시</th><th>진료 목표</th><th>주 진료 구역</th><th className="num">건수</th>
               </tr>
             </thead>
             <tbody>
@@ -61,17 +61,17 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="muted small">진료 목표 시간은 ‘분류가 끝난 뒤 의사를 처음 만날 때까지’예요. 이 시간을 넘기면 ‘진료 지연’으로 표시돼요(5분 여유).</p>
+        <p className="muted small">진료 목표 시간은 분류 완료부터 의사 첫 진료까지의 시간입니다. 목표 시간에서 5분을 넘기면 진료 지연으로 분류합니다.</p>
       </section>
 
       <section className="card">
         <div className="card-head">
-          <h2>감사 규칙 — 이런 기록을 ‘다시 볼 기록’으로 골라요</h2>
-          <span className="muted small">빨강은 꼭 확인, 주황은 확인하면 좋은 기록이에요.</span>
+          <h2>감사 규칙</h2>
+          <span className="muted small">빨간색은 필수 확인, 주황색은 주의 항목입니다.</span>
         </div>
         <div className="table-wrap">
           <table className="table rules-table">
-            <thead><tr><th>무엇이 문제인가</th><th>왜 보나요</th><th>설명할 팀</th><th>중요도</th><th className="num">해당</th></tr></thead>
+            <thead><tr><th>항목</th><th>검토 이유</th><th>소명 부서</th><th>구분</th><th className="num">해당</th></tr></thead>
             <tbody>
               {Object.entries(rules).map(([code, r]) => {
                 const p = RULE_PLAIN[code];
@@ -80,7 +80,7 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
                     <td><b>{p?.plain ?? r.title}</b><div className="muted small">{r.title}</div></td>
                     <td className="small">{p?.why ?? r.basis}</td>
                     <td><span className={`pill dept-pill-sm dept-${p?.dept ?? "QI"}`}>{deptName(p?.dept)}</span></td>
-                    <td><span className={`pill ${r.severity === "high" ? "pill-danger" : "pill-warn"}`}>{r.severity === "high" ? "꼭 확인" : "주의"}</span></td>
+                    <td><span className={`pill ${r.severity === "high" ? "pill-danger" : "pill-warn"}`}>{r.severity === "high" ? "필수" : "주의"}</span></td>
                     <td className="num strong">{summary.rule_counts[code] ?? 0}건</td>
                   </tr>
                 );
@@ -91,12 +91,12 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
       </section>
 
       <section className="card">
-        <h2>데이터와 기록</h2>
+        <h2>데이터 및 저장</h2>
         <ul className="plain">
-          <li><b>데이터</b> {summary.hospital}, {summary.period}, 내원 {summary.total}건. 모두 <b>가상 데이터</b>이며 실제 환자 정보는 없어요.</li>
+          <li><b>데이터</b> {summary.hospital}, {summary.period}, 내원 {summary.total}건. 모두 <b>가상 데이터</b>이며 실제 환자 정보는 없습니다.</li>
           <li><b>결정 저장</b> {STORE_LABEL[storeName] ?? "확인 중"}</li>
-          <li><b>AI 역할</b> 문제를 요약해 제안만 해요. 진단·치료 판단은 하지 않고, 결정은 QI팀이 해요.</li>
-          <li><b>주의</b> 기준값은 데모용 예시예요. 실제로 쓸 때는 병원 지침과 응급의료기관 평가 기준을 확인하세요.</li>
+          <li><b>근거 요약</b> 감사 항목을 요약하고 권장 조치를 표시합니다. 진단이나 치료 판단은 하지 않으며 판정은 QI팀이 합니다.</li>
+          <li><b>참고</b> 기준값은 데모용입니다. 실제 적용 시 병원 지침과 응급의료기관 평가 기준을 따릅니다.</li>
         </ul>
       </section>
     </div>

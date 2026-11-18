@@ -58,7 +58,7 @@ export default function App() {
     try {
       const me = await api.me();
       setUser(me);
-      if (!quiet) setToast(`${me.dept_name}${me.kind === "demo" ? " 데모" : ""}로 로그인했어요`);
+      if (!quiet) setToast(`${me.dept_name}${me.kind === "demo" ? " 데모" : ""}로 로그인했습니다`);
       return me;
     } catch (e) {
       setAuthToken(null);
@@ -113,7 +113,7 @@ export default function App() {
       const { token } = await api.demoLogin(dept);
       saveStorage(DEMO_TOKEN_KEY, token);
       await adoptToken(token);
-      // [기획 > 사용자 이해] 이 팀으로 처음 들어오면 사용 안내부터 보여 줘요(팀마다 한 번).
+      // [기획 > 사용자 이해] 부서별 첫 접속 시 업무 안내를 먼저 표시(부서당 1회).
       const seen = safeStorage<string[]>(GUIDE_SEEN_KEY, []);
       setTab(seen.includes(dept) ? "overview" : "guide");
     },
@@ -127,7 +127,7 @@ export default function App() {
     setUser(null);
     setTab("overview");
     setSelected(null);
-    setToast("로그아웃했어요");
+    setToast("로그아웃했습니다");
   }, []);
 
   // ── 데이터 ─────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ export default function App() {
       setSummary(s);
       setRules(r);
     } catch (e) {
-      setLoadError(e instanceof ApiError ? e.message : "데이터를 불러오지 못했어요.");
+      setLoadError(e instanceof ApiError ? e.message : "데이터를 불러오지 못했습니다.");
     }
     api.progress().then(setProgress, () => setProgress({ available: false, flagged: 0, undecided: 0, requested: 0, answered: 0, closed: 0 }));
   }, []);
@@ -177,7 +177,7 @@ export default function App() {
         setVisits(v.items);
         setVisitsLoaded(true);
       },
-      (e) => alive && setLoadError(e instanceof ApiError ? e.message : "내원 목록을 불러오지 못했어요."),
+      (e) => alive && setLoadError(e instanceof ApiError ? e.message : "내원 목록을 불러오지 못했습니다."),
     );
     return () => { alive = false; };
   }, [user]);
@@ -204,7 +204,7 @@ export default function App() {
       await fn();
       return true;
     } catch (e) {
-      setToast(e instanceof ApiError ? e.message : "저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setToast(e instanceof ApiError ? e.message : "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       if (e instanceof ApiError && e.status === 409) loadReviews();
       return false;
     }
@@ -215,7 +215,7 @@ export default function App() {
       guard(async () => {
         const saved = await api.saveReview({ visit_id: visitId, decision, note });
         setReviews((prev) => ({ ...prev, [visitId]: saved }));
-        setToast(saved.stage === "requested" ? `${visitId} · 소명을 요청했어요` : `${visitId} · ${decision}로 확정했어요`);
+        setToast(saved.stage === "requested" ? `${visitId} · 소명을 요청했습니다` : `${visitId} · ${decision}로 확정했습니다`);
       }),
     [guard],
   );
@@ -225,7 +225,7 @@ export default function App() {
       guard(async () => {
         const saved = await api.respond(visitId, response);
         setReviews((prev) => ({ ...prev, [visitId]: saved }));
-        setToast(`${visitId} · 소명을 제출했어요. QI팀이 확인합니다`);
+        setToast(`${visitId} · 소명을 제출했습니다. QI팀이 확인합니다`);
       }),
     [guard],
   );
@@ -239,7 +239,7 @@ export default function App() {
           delete next[visitId];
           return next;
         });
-        setToast(`${visitId} 결정을 되돌렸어요`);
+        setToast(`${visitId} 결정을 취소했습니다`);
       }),
     [guard],
   );
@@ -249,7 +249,7 @@ export default function App() {
       guard(async () => {
         const { deleted } = await api.resetDemo();
         setReviews({});
-        setToast(`데모 데이터를 초기화했어요 (${deleted}건)`);
+        setToast(`데모 데이터를 초기화했습니다 (${deleted}건)`);
       }),
     [guard],
   );
@@ -267,7 +267,7 @@ export default function App() {
 
   const tabs: { id: Tab; label: string; count?: number; tone?: string }[] = [
     { id: "overview", label: user && !isQi ? `${user.dept_name} 홈` : "한눈에 보기" },
-    { id: "guide", label: "사용 안내" },
+    { id: "guide", label: "업무 안내" },
     { id: "high", label: "확인 필요", count: pendingHigh, tone: "danger" },
     { id: "medium", label: "주의 관찰", count: mediumVisits.filter(needsQi).length, tone: "warn" },
     { id: "explain", label: user && !isQi ? `${user.dept_name} 소명` : "소명 현황", count: explainCount, tone: "accent" },
@@ -276,12 +276,12 @@ export default function App() {
   ];
 
   const sys = !health
-    ? { tone: "is-warn", short: "상태 확인 중", full: "서버 상태를 확인하는 중이에요." }
+    ? { tone: "is-warn", short: "상태 확인 중", full: "서버 상태를 확인하는 중입니다." }
     : !health.ok
-      ? { tone: "is-bad", short: "연결 오류", full: "서버 또는 DB에 연결하지 못했어요. 잠시 후 새로고침해 주세요." }
+      ? { tone: "is-bad", short: "연결 오류", full: "서버 또는 DB에 연결하지 못했습니다. 잠시 후 새로고침해 주세요." }
       : health.store === "postgres"
-        ? { tone: "", short: "DB 정상", full: "DB(Neon) 연결 정상 — 결정·소명·팀 메모가 저장돼요. 데이터는 모두 가상이에요." }
-        : { tone: "is-warn", short: "임시 저장", full: "DB 없이 서버 메모리에 임시로 저장 중이에요(데모). 서버가 다시 켜지면 기록이 사라져요." };
+        ? { tone: "", short: "DB 정상", full: "DB(Neon) 연결 정상 — 결정·소명·팀 메모가 저장됩니다. 데이터는 모두 가상입니다." }
+        : { tone: "is-warn", short: "임시 저장", full: "DB 없이 서버 메모리에 임시로 저장 중입니다(데모). 서버가 다시 켜지면 기록이 사라져요." };
 
   return (
     <div className="app">
@@ -297,7 +297,7 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-meta">
-          {/* [유지보수] 서버·DB 연결 표시등 — 점만 두지 않고 짧은 글자를 항상 함께 보여요. 자세한 뜻은 마우스를 올리면 보여요. */}
+          {/* [유지보수] 서버·DB 연결 표시등 — 짧은 상태 문구를 항상 함께 표시하고, 상세 설명은 툴팁으로 제공. */}
           <span className={`sys-status ${sys.tone}`} title={sys.full} aria-label={sys.full}>
             <i className={`sys-dot ${sys.tone}`} aria-hidden />
             <span>{sys.short}</span>
@@ -327,7 +327,7 @@ export default function App() {
       <main className={`content ${authReady && !user ? "content-wide" : ""}`}>
         {loadError ? (
           <div className="error-box" role="alert">
-            <strong>데이터를 불러오지 못했어요</strong>
+            <strong>데이터를 불러오지 못했습니다</strong>
             <p>{loadError}</p>
             <button className="btn" onClick={loadPublic}>다시 불러오기</button>
           </div>
@@ -366,7 +366,7 @@ export default function App() {
               <>
                 {user && !isQi && (
                   <div className="back-bar">
-                    <span className="muted small">병원 전체 현황을 보고 있어요.</span>
+                    <span className="muted small">병원 전체 현황을 보고 있습니다.</span>
                     <button className="link" onClick={() => setShowHospital(false)}>← {user.dept_name} 홈으로</button>
                   </div>
                 )}

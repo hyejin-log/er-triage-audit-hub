@@ -32,14 +32,11 @@ export default function Overview({ summary, visits, reviews, pendingHigh, onGo }
   return (
     <div className="stack">
       <section className="hero card">
-        <p className="eyebrow">한눈에 보기 · {summary.period}</p>
-        <h1>
-          이 화면은 {summary.hospital} 질향상(QI)팀이 응급실 내원 {summary.total}건의
-          <br className="hide-sm" /> 중증도 분류와 체류 시간이 적절했는지 검토하는 곳입니다.
-        </h1>
+        <p className="eyebrow">감사 현황 · {summary.period}</p>
+        <h1>응급실 내원 {summary.total}건 감사 현황</h1>
         <p className="lead">
-          구역별 재실 환자를 합쳐 병상 한도를 넘긴 시간대를 찾고, 24시간 초과 체류나 근거 없는 KTAS 하향 같은
-          High Risk 건을 승인 전에 잡습니다. AI는 근거를 제안하고 결정은 담당자가 합니다.
+          구역별 재실 인원이 병상 수를 넘긴 시간대, 24시간 초과 체류, 근거 없는 하향 재분류 등 검토 대상을 판정 전에 표시합니다.
+          근거 요약은 참고용이며 판정은 QI팀이 합니다.
         </p>
         <div className="hero-actions">
           <button className="btn btn-danger" onClick={() => onGo("high")}>
