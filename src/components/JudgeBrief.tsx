@@ -1,8 +1,7 @@
 // [기획 > 발표] 심사위원·면접관용 핵심 요약 — 문제 · 데이터 흐름 · 확인되는 효과
-// 로그인 전 첫 화면에 바로 펼쳐 보이고(BriefPanel), 로그인 후에는 상단 버튼으로 모달을 엽니다(JudgeBrief).
+// 로그인 전 첫 화면에만 펼쳐 보입니다(로그인 후에는 필요 없어서 두지 않음).
 // 모든 숫자는 앱이 실제로 계산한 값만 씁니다(예측·과장 수치 없음).
-import { useEffect, useRef } from "react";
-import { ArrowRight, Award, Database, Target, TrendingDown, X } from "lucide-react";
+import { ArrowRight, Database, Target, TrendingDown } from "lucide-react";
 import type { Progress, Summary } from "../types";
 import { duration, pct } from "../format";
 
@@ -14,7 +13,7 @@ interface ContentProps {
 const FLOW = ["규칙 자동 감지", "AI 근거 제안", "QI팀 판정", "담당 팀 소명", "QI팀 확정"];
 const STACK = "React · Vite · FastAPI · Neon Postgres · Supabase Auth · Vercel";
 
-/** 요약 본문 — 첫 화면 패널과 모달이 함께 씁니다. */
+/** 요약 본문 — 로그인 전 첫 화면 오른쪽 패널 */
 export function BriefContent({ summary, progress }: ContentProps) {
   const flagged = summary ? summary.high + summary.medium : 0;
   const worst = summary?.zones[0];
@@ -68,41 +67,6 @@ export function BriefContent({ summary, progress }: ContentProps) {
         )}
         <p className="muted small">가상 데이터 기준이에요. 실제 효과는 기관 데이터로 검증이 필요해요.</p>
       </section>
-    </div>
-  );
-}
-
-/** 로그인 후 상단 버튼으로 여는 모달 */
-export default function JudgeBrief({ summary, progress, onClose }: ContentProps & { onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      prev?.focus();
-    };
-  }, [onClose]);
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="brief-title" onClick={(e) => e.stopPropagation()}>
-        <header className="modal-head">
-          <div className="modal-title">
-            <span className="kpi-icon tone-accent static"><Award /></span>
-            <div>
-              <h2 id="brief-title">핵심 요약</h2>
-              <p className="muted small">심사위원·면접관을 위한 한 장 요약</p>
-            </div>
-          </div>
-          <button ref={closeRef} className="icon-btn" onClick={onClose} aria-label="닫기"><X className="ico" /></button>
-        </header>
-        <BriefContent summary={summary} progress={progress} />
-        <button className="btn btn-primary btn-block" onClick={onClose}>확인했어요</button>
-      </div>
     </div>
   );
 }

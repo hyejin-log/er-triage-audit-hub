@@ -9,8 +9,6 @@ import AuthBar from "./components/AuthBar";
 import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
 import Landing from "./components/Landing";
-import JudgeBrief from "./components/JudgeBrief";
-import { Award, Plus } from "lucide-react";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -27,7 +25,6 @@ export default function App() {
   const [visitsLoaded, setVisitsLoaded] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [briefOpen, setBriefOpen] = useState(false);
   const [health, setHealth] = useState<{ ok: boolean; store?: string; db_ok?: boolean | null } | null>(null);
   const [rules, setRules] = useState<Record<string, Rule>>({});
   const [reviews, setReviews] = useState<Record<string, Review>>({});
@@ -265,11 +262,19 @@ export default function App() {
     { id: "rules", label: "감사 기준" },
   ];
 
+  const sys = !health
+    ? { tone: "is-warn", short: "상태 확인 중", full: "서버 상태를 확인하는 중이에요." }
+    : !health.ok
+      ? { tone: "is-bad", short: "연결 오류", full: "서버 또는 DB에 연결하지 못했어요. 잠시 후 새로고침해 주세요." }
+      : health.store === "postgres"
+        ? { tone: "", short: "DB 정상", full: "DB(Neon) 연결 정상 — 결정·소명·팀 메모가 저장돼요. 데이터는 모두 가상이에요." }
+        : { tone: "is-warn", short: "임시 저장", full: "DB 없이 서버 메모리에 임시로 저장 중이에요(데모). 서버가 다시 켜지면 기록이 사라져요." };
+
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden><Plus size={24} strokeWidth={3} /></span>
+          <span className="brand-mark" aria-hidden><CrossMark /></span>
           <div>
             <span className="brand-title">
               <strong>MediGuard ER</strong>
@@ -279,17 +284,11 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-meta">
-          {/* 로그인 전에는 첫 화면에 핵심 요약이 펼쳐져 있어서, 버튼은 로그인 후에만 보여요. */}
-          {user && (
-            <button className="btn btn-sm btn-brief-plain" onClick={() => setBriefOpen(true)}>
-              <Award className="ico" />&nbsp;핵심 요약
-            </button>
-          )}
-          <span className={`sys-status hide-sm ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} title={summary ? `${summary.period} · 가상 데이터` : "가상 데이터"}>
-            <i className={`sys-dot ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} />
-            <span>
-              {!health ? "상태 확인 중" : !health.ok ? "서버 연결 확인 필요" : health.store === "postgres" ? "DB 연결 정상 · 가상 데이터" : "메모리 저장(데모) · 가상 데이터"}
-            </span>
+          {/* [유지보수] 서버·DB 연결 표시등 — 점만 두지 않고 짧은 글자를 항상 함께 보여요. 자세한 뜻은 마우스를 올리면 보여요. */}
+          <span className={`sys-status ${sys.tone}`} title={sys.full} aria-label={sys.full}>
+            <i className={`sys-dot ${sys.tone}`} aria-hidden />
+            <span>{sys.short}</span>
+            <span className="sys-long">· 가상 데이터</span>
           </span>
           <AuthBar user={user} onDemoLogin={demoLogin} onLogout={logout} />
         </div>
@@ -373,8 +372,17 @@ export default function App() {
       </main>
 
       {selected && <VisitDrawer visit={selected} review={reviews[selected.visit_id]} user={user} onClose={() => setSelected(null)} />}
-      {briefOpen && <JudgeBrief summary={summary} progress={progress} onClose={() => setBriefOpen(false)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
+  );
+}
+
+// [디자인] 두꺼운 의료 십자 로고
+function CrossMark() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <rect x="8.4" y="2.5" width="7.2" height="19" rx="1.8" />
+      <rect x="2.5" y="8.4" width="19" height="7.2" rx="1.8" />
+    </svg>
   );
 }
