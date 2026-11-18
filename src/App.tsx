@@ -10,7 +10,7 @@ import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
 import Landing from "./components/Landing";
 import JudgeBrief from "./components/JudgeBrief";
-import { Plus, Sparkles } from "lucide-react";
+import { Award, Plus } from "lucide-react";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
@@ -279,9 +279,12 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-meta">
-          <button className="btn btn-sm btn-brief" onClick={() => setBriefOpen(true)} aria-label="핵심 요약 열기">
-            <Sparkles className="ico" /><span>핵심 요약</span>
-          </button>
+          {/* 로그인 전에는 첫 화면에 핵심 요약이 펼쳐져 있어서, 버튼은 로그인 후에만 보여요. */}
+          {user && (
+            <button className="btn btn-sm btn-brief-plain" onClick={() => setBriefOpen(true)}>
+              <Award className="ico" />&nbsp;핵심 요약
+            </button>
+          )}
           <span className={`sys-status hide-sm ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} title={summary ? `${summary.period} · 가상 데이터` : "가상 데이터"}>
             <i className={`sys-dot ${!health ? "is-warn" : !health.ok ? "is-bad" : health.store === "postgres" ? "" : "is-warn"}`} />
             <span>
@@ -309,7 +312,7 @@ export default function App() {
       </nav>
       )}
 
-      <main className="content">
+      <main className={`content ${authReady && !user ? "content-wide" : ""}`}>
         {loadError ? (
           <div className="error-box" role="alert">
             <strong>데이터를 불러오지 못했어요</strong>
