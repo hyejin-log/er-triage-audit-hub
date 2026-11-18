@@ -31,7 +31,7 @@ export default function TeamHome(props: Props) {
           <button className="link" onClick={onShowHospital}>병원 전체 현황 보기 →</button>
         </div>
         <h1>{HEADLINE[user.dept]}</h1>
-        <p className="lead">결정·소명 기록은 모든 팀이 함께 보고, 이 화면의 지표와 팀 메모는 {user.dept_name} 기준이에요.</p>
+        <p className="lead small">결정·소명 기록은 모든 팀이 함께 봐요. 아래 지표와 팀 메모는 {user.dept_name} 기준이에요. 점선 밑줄 용어에 마우스를 올리면 뜻이 나와요.</p>
         <div className="hero-actions">
           <button className={`btn ${waiting ? "btn-danger" : ""}`} onClick={() => onGo("explain")}>
             답변할 소명 {waiting}건 {waiting ? "처리하기 →" : "· 대기 없음"}

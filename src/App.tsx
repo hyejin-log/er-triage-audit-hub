@@ -9,13 +9,16 @@ import AuthBar from "./components/AuthBar";
 import Overview from "./components/Overview";
 import TeamHome from "./components/TeamHome";
 import Landing from "./components/Landing";
+import Guide from "./components/Guide";
+import RoleStrip from "./components/RoleStrip";
 import ReviewQueue from "./components/ReviewQueue";
 import ExplanationBoard from "./components/ExplanationBoard";
 import VisitTable from "./components/VisitTable";
 import VisitDrawer from "./components/VisitDrawer";
 import RulesPanel from "./components/RulesPanel";
 
-export type Tab = "overview" | "high" | "medium" | "explain" | "all" | "rules";
+export type Tab = "overview" | "guide" | "high" | "medium" | "explain" | "all" | "rules";
+const GUIDE_SEEN_KEY = "er-audit:guide-seen";
 const DEMO_TOKEN_KEY = "er-audit:demo-token";
 
 export default function App() {
@@ -34,6 +37,13 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showHospital, setShowHospital] = useState(false);
+
+  // 사용 안내를 한 번 본 팀은 기억해 두고 다음부터 홈으로 바로 갑니다.
+  useEffect(() => {
+    if (tab !== "guide" || !user) return;
+    const seen = safeStorage<string[]>(GUIDE_SEEN_KEY, []);
+    if (!seen.includes(user.dept)) saveStorage(GUIDE_SEEN_KEY, [...seen, user.dept]);
+  }, [tab, user]);
 
   // 팀이 바뀌면 팀 홈부터 보여 줍니다.
   useEffect(() => setShowHospital(false), [user?.dept]);
@@ -103,7 +113,9 @@ export default function App() {
       const { token } = await api.demoLogin(dept);
       saveStorage(DEMO_TOKEN_KEY, token);
       await adoptToken(token);
-      setTab("overview");
+      // [기획 > 사용자 이해] 이 팀으로 처음 들어오면 사용 안내부터 보여 줘요(팀마다 한 번).
+      const seen = safeStorage<string[]>(GUIDE_SEEN_KEY, []);
+      setTab(seen.includes(dept) ? "overview" : "guide");
     },
     [adoptToken],
   );
@@ -255,6 +267,7 @@ export default function App() {
 
   const tabs: { id: Tab; label: string; count?: number; tone?: string }[] = [
     { id: "overview", label: user && !isQi ? `${user.dept_name} 홈` : "한눈에 보기" },
+    { id: "guide", label: "사용 안내" },
     { id: "high", label: "확인 필요", count: pendingHigh, tone: "danger" },
     { id: "medium", label: "주의 관찰", count: mediumVisits.filter(needsQi).length, tone: "warn" },
     { id: "explain", label: user && !isQi ? `${user.dept_name} 소명` : "소명 현황", count: explainCount, tone: "accent" },
@@ -326,6 +339,18 @@ export default function App() {
           </div>
         ) : (
           <>
+            {tab === "guide" && user && (
+              <Guide user={user} onGo={setTab} onDone={() => setTab("overview")} />
+            )}
+            {tab === "overview" && user && !showHospital && (
+              <RoleStrip
+                user={user}
+                todo={isQi ? visits.filter((v) => v.flags.length > 0 && needsQi(v)).length : explainCount}
+                todoLabel={isQi ? "판정할 기록" : "답변할 소명"}
+                todoTab={isQi ? "high" : "explain"}
+                onGo={setTab}
+              />
+            )}
             {tab === "overview" && user && !isQi && !showHospital && (
               <TeamHome
                 user={user}

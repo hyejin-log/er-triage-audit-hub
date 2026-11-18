@@ -99,3 +99,10 @@ export const GLOSSARY = {
   },
 } as const;
 export type GlossaryKey = keyof typeof GLOSSARY;
+
+/** 받침에 맞춰 조사를 붙입니다. 예: josa("응급간호팀", "은", "는") → "응급간호팀은" */
+export function josa(word: string, withFinal: string, withoutFinal: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return `${word}${withoutFinal}`;
+  return `${word}${code % 28 === 0 ? withoutFinal : withFinal}`;
+}

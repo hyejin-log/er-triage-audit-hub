@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import type { Decision, Rationale, Review, User, Visit } from "../types";
-import { clock, deptName, duration, stamp } from "../format";
+import { clock, deptName, duration, josa, stamp } from "../format";
 
 interface Props {
   visits: Visit[];
@@ -52,7 +52,7 @@ export default function ReviewQueue({ visits, reviews, user, onDecide, onUndo, o
         {!isQi && (
           <div className="role-note">
             {user
-              ? <><b>{user.dept_name}</b>은(는) 보기만 할 수 있어요. 판정은 QI팀이, 소명은 ‘{user.dept_name} 소명’ 탭에서 합니다.</>
+              ? <><b>{josa(user.dept_name, "은", "는")}</b> 보기만 할 수 있어요. 판정은 QI팀이, 소명은 ‘{user.dept_name} 소명’ 탭에서 합니다.</>
               : <>오른쪽 위 <b>로그인</b>에서 <b>QI팀</b>으로 들어가면 결정을 기록할 수 있어요.</>}
           </div>
         )}
