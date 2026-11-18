@@ -15,10 +15,10 @@ interface Props {
 }
 
 const TEAM_VIEW: Record<DeptCode, string> = {
-  QI: "기록 판정, 소명 요청, 최종 판정",
-  NURSING: "재분류 근거 기록률, 과소분류, 간호사별 현황",
-  EM: "등급별 진료 목표 준수율, 의사별 대기 시간",
-  BED: "구역별 혼잡도, 입원 병상 대기 시간",
+  QI: "문제 기록 판단, 부서에 경위 질문",
+  NURSING: "등급을 낮춘 이유 기록, 너무 낮게 매긴 사례",
+  EM: "제때 의사를 만났는지, 의사별 대기 시간",
+  BED: "구역별 붐빔, 입원 병실을 받기까지 걸린 시간",
 };
 
 export default function Landing({ summary, progress, onDemoLogin }: Props) {
@@ -43,19 +43,19 @@ export default function Landing({ summary, progress, onDemoLogin }: Props) {
       <div className="landing-main">
         <section className="card landing-intro">
           <p className="eyebrow">응급실 진료 기록 감사 · 가상 데이터</p>
-          <h1>응급실 중증도 분류와 진료 지연을 점검합니다</h1>
+          <h1>응급실에서 환자 순서를 제대로 정했는지, 너무 오래 기다리지 않았는지 점검합니다</h1>
           <p className="lead small">
-            응급실은 내원 환자를 <Term k="KTAS" /> 1~5등급으로 분류해 진료 순서를 정합니다(1등급이 가장 위급).
-            {summary ? ` ${summary.period} 내원 ${summary.total}건` : " 내원 기록"} 가운데 분류나 대기 시간에 문제가 있는 기록을 추려{" "}
-            <Term k="QI">QI팀</Term>(의료 질 향상 관리팀)이 검토하고, 필요하면 담당 부서에 <Term k="EXPLAIN">소명</Term>을 요청합니다.
+            응급실은 도착한 순서가 아니라 위급한 순서로 환자를 봅니다. 그 순서를 정하는 기준이 <Term k="KTAS" />입니다(1~5등급, 1등급이 가장 위급).
+            {summary ? ` 48시간 동안 온 환자 ${summary.total}명` : " 내원 기록"} 가운데 등급을 잘못 매겼거나 너무 오래 기다린 기록을 골라{" "}
+            <Term k="QI">QI팀</Term>(의료 질 향상 관리팀)이 살펴보고, 필요하면 담당 부서에 경위(<Term k="EXPLAIN">소명</Term>)를 묻습니다.
           </p>
 
           <div className="mini-kpis" aria-busy={!summary}>
-            <Stat icon={<Users />} label="전체 내원" value={summary ? `${summary.total}건` : "-"} />
-            <Stat icon={<AlertOctagon />} tone="danger" label={<Term k="SIGNAL">검토 대상</Term>} value={summary ? `${summary.high + summary.medium}건` : "-"} foot={summary ? `확인 필요 ${summary.high}, 주의 ${summary.medium}` : ""} />
-            <Stat icon={<BedDouble />} tone="warn" label="최대 혼잡 구역" value={worst ? `${worst.ratio}%` : "-"} foot={worst ? `${worst.zone}, 병상 ${worst.beds}개 / 최대 ${worst.peak}명` : ""} />
-            <Stat icon={<Clock />} tone="accent" label="체류시간 중앙값" value={summary ? duration(summary.median_los_min) : "-"} foot={summary ? `24시간 초과 ${summary.los_buckets["24시간 초과"] ?? 0}명` : ""} />
-            <Stat icon={<CheckCircle2 />} tone="ok" label="검토 완료" value={progress?.available ? `종결 ${progress.closed}/${progress.flagged}` : "-"} foot={progress?.available ? `판정 대기 ${progress.undecided + progress.answered}, 소명 중 ${progress.requested}` : ""} />
+            <Stat icon={<Users />} label="전체 환자" value={summary ? `${summary.total}명` : "-"} foot="48시간 동안 응급실 방문" />
+            <Stat icon={<AlertOctagon />} tone="danger" label={<Term k="SIGNAL">검토 대상</Term>} value={summary ? `${summary.high + summary.medium}건` : "-"} foot={summary ? `다시 볼 기록 (꼭 ${summary.high}, 주의 ${summary.medium})` : ""} />
+            <Stat icon={<BedDouble />} tone="warn" label="가장 붐빈 구역" value={worst ? `${worst.ratio}%` : "-"} foot={worst ? `${worst.zone} 침대 ${worst.beds}개에 최대 ${worst.peak}명` : ""} />
+            <Stat icon={<Clock />} tone="accent" label="응급실에 머문 시간" value={summary ? duration(summary.median_los_min) : "-"} foot={summary ? `보통(중간값), 하루 넘게 ${summary.los_buckets["24시간 초과"] ?? 0}명` : ""} />
+            <Stat icon={<CheckCircle2 />} tone="ok" label="검토 마친 기록" value={progress?.available ? `종결 ${progress.closed}/${progress.flagged}` : "-"} foot={progress?.available ? `판정 대기 ${progress.undecided + progress.answered}, 소명 중 ${progress.requested}` : ""} />
           </div>
 
           {/* 팀 선택 — 소개 카드 안 아래쪽 */}

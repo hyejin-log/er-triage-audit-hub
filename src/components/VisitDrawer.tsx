@@ -146,7 +146,7 @@ export default function VisitDrawer({ visit, review, user, onClose }: Props) {
 // [개발 > 협업] 팀 내부 메모 — 같은 팀만 보이고, 다른 팀에는 보이지 않습니다.
 function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
   const [notes, setNotes] = useState<TeamNote[] | null>(null);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => (user ? demoTeamNote(user.dept) : "")); // [기획 > 시연] 예시 메모를 미리 채움
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const noteId = useId();
@@ -222,7 +222,7 @@ function TeamNotes({ visitId, user }: { visitId: string; user: User | null }) {
         <div className="field-head">
           <label htmlFor={noteId}>새 메모</label>
           <button type="button" className="demo-fill" onClick={() => { setText(demoTeamNote(user.dept)); setError(null); }}>
-            <Wand2 className="ico" />데모 문구 넣기
+            <Wand2 className="ico" />예시 문구 다시 넣기
           </button>
         </div>
         <textarea id={noteId} rows={2} maxLength={500} value={text} onChange={(e) => { setText(e.target.value); setError(null); }} placeholder="팀 내부에서만 공유할 내용" />

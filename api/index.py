@@ -210,6 +210,19 @@ def remove_review(visit_id: str, _user: User = Depends(require_qi)):
     _store_call(store.delete_review, visit_id)
 
 
+@app.post("/api/demo/seed")
+def demo_seed(user: User = Depends(require_qi)):
+    """[기획 > 시연] 예시 기록 채우기 — 기존 기록을 비우고 단계별 예시 기록과 팀 메모를 만듭니다. (QI팀만)"""
+    from backend.demo_seed import seed
+
+    try:
+        return seed(audit_result()["visits"], user.name)
+    except store.StageConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except store.StoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.post("/api/demo/reset")
 def demo_reset(user: User = Depends(require_qi)):
     """[데모] 모든 결정·소명을 비워 처음 상태로 되돌립니다. (QI팀만)"""

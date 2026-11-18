@@ -1,6 +1,6 @@
 // [개발 > 프론트엔드] 확인 필요 / 주의 관찰 큐 — High Risk 카드 + AI 근거 제안 + QI팀 결정
 // 소명이 제출된 건은 다시 이 큐로 올라와 QI팀이 최종 확정합니다.
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Wand2 } from "lucide-react";
 import { demoDecisionNote } from "../demoText";
 import { api, ApiError } from "../api";
@@ -18,9 +18,9 @@ interface Props {
 }
 
 const FIRST_DECISIONS: { value: Decision; hint: string }[] = [
-  { value: "적정 확인", hint: "기록상 문제가 없음" },
-  { value: "재분류 확정", hint: "분류·조치가 부적절했음" },
-  { value: "소명 요청", hint: "담당 부서에 설명 요청" },
+  { value: "적정 확인", hint: "문제 없음" },
+  { value: "재분류 확정", hint: "등급이 잘못됨" },
+  { value: "소명 요청", hint: "부서에 경위 질문" },
 ];
 const FINAL_DECISIONS = FIRST_DECISIONS.slice(0, 2);
 
@@ -136,10 +136,16 @@ function RiskCard({
   const [loading, setLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
-  const [note, setNote] = useState("");
+  // [기획 > 시연] 메모는 예시 문장으로 미리 채워 두고, 직접 고치기 전까지는 고른 결정에 맞춰 바꿉니다.
+  const [note, setNote] = useState(() => (answered ? "" : demoDecisionNote(visit, null)));
+  const [noteEdited, setNoteEdited] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const noteId = useId();
+
+  useEffect(() => {
+    if (!noteEdited && decision) setNote(demoDecisionNote(visit, decision));
+  }, [decision, noteEdited, visit]);
 
   const askAi = async () => {
     setLoading(true);
@@ -244,6 +250,7 @@ function RiskCard({
                 onClick={() => { setDecision(d.value); setFormError(null); }}
               >
                 {d.value}
+                <small className="seg-hint">{d.hint}</small>
               </button>
             ))}
           </div>
@@ -253,8 +260,8 @@ function RiskCard({
           <div className="field">
             <div className="field-head">
               <label htmlFor={noteId}>메모 {decision && decision !== "적정 확인" ? "(필수)" : "(선택)"}</label>
-              <button type="button" className="demo-fill" onClick={() => { setNote(demoDecisionNote(visit, decision)); setFormError(null); }}>
-                <Wand2 className="ico" />데모 문구 넣기
+              <button type="button" className="demo-fill" onClick={() => { setNote(demoDecisionNote(visit, decision)); setNoteEdited(false); setFormError(null); }}>
+                <Wand2 className="ico" />예시 문구 다시 넣기
               </button>
             </div>
             <textarea
@@ -262,7 +269,7 @@ function RiskCard({
               rows={2}
               maxLength={500}
               value={note}
-              onChange={(e) => { setNote(e.target.value); setFormError(null); }}
+              onChange={(e) => { setNote(e.target.value); setNoteEdited(true); setFormError(null); }}
               placeholder={decision === "소명 요청" ? "부서에 요청할 내용" : "확인한 기록, 판단 근거"}
             />
           </div>

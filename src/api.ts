@@ -59,6 +59,7 @@ export const api = {
   demoLogin: (dept: DeptCode) => request<{ token: string; user: User }>("/api/demo-login", { method: "POST", body: JSON.stringify({ dept }) }),
   me: () => request<User>("/api/me"),
   resetDemo: () => request<{ deleted: number }>("/api/demo/reset", { method: "POST" }),
+  seedDemo: () => request<{ closed: number; requested: number; answered: number; notes: number }>("/api/demo/seed", { method: "POST" }),
   // [개발 > 협업] 팀 메모
   notes: (visitId?: string) =>
     request<{ dept: DeptCode; items: TeamNote[] }>(`/api/notes${visitId ? `?visit_id=${encodeURIComponent(visitId)}` : ""}`),

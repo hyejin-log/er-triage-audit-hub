@@ -22,17 +22,17 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
     <div className="stack">
       <div>
         <h1 className="page-title">감사 기준</h1>
-        <p className="muted">검토 대상 선정 기준과 KTAS 등급별 진료 목표입니다.</p>
+        <p className="muted">응급실 환자 등급(KTAS)과, 어떤 기록을 다시 살펴보는지 정리한 기준입니다.</p>
       </div>
 
       <section className="card">
         <div className="card-head">
-          <h2>KTAS 등급</h2>
-          <span className="muted small">숫자가 작을수록 위급하며 진료 목표 시간이 짧습니다.</span>
+          <h2>KTAS 등급 (응급실 환자 위급도 등급)</h2>
+          <span className="muted small">숫자가 작을수록 위급하고, 의사를 빨리 만나야 합니다.</span>
         </div>
         <p className="small ktas-intro">
-          내원 시 분류 간호사가 증상과 <b>활력징후</b>(혈압, 맥박, 호흡수, 산소포화도, 의식 수준)를 확인해 1~5등급으로 분류합니다.
-          진료는 도착 순서가 아니라 등급 순으로 진행됩니다. 예시는 참고용이며 실제 분류는 의료진이 판단합니다.
+          응급실에 도착하면 간호사가 증상과 혈압·맥박·호흡·산소 수치·의식 상태를 확인해 1~5등급 중 하나를 매깁니다.
+          진료는 도착한 순서가 아니라 등급 순서로 진행됩니다. 1등급이 가장 위급합니다. 예시는 참고용이며 실제 등급은 의료진이 판단합니다.
         </p>
         <div className="table-wrap">
           <table className="table ktas-table">
@@ -61,13 +61,13 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="muted small">진료 목표 시간은 분류 완료부터 의사 첫 진료까지의 시간입니다. 목표 시간에서 5분을 넘기면 진료 지연으로 분류합니다.</p>
+        <p className="muted small">진료 목표 시간은 등급을 매긴 뒤 의사를 처음 만나기까지 걸려도 되는 시간입니다. 이 시간보다 5분 넘게 늦으면 ‘늦게 진료’로 표시합니다.</p>
       </section>
 
       <section className="card">
         <div className="card-head">
-          <h2>감사 규칙</h2>
-          <span className="muted small">빨간색은 필수 확인, 주황색은 주의 항목입니다.</span>
+          <h2>다시 살펴보는 기록</h2>
+          <span className="muted small">빨간색은 꼭 확인할 항목, 주황색은 확인하면 좋은 항목입니다.</span>
         </div>
         <div className="table-wrap">
           <table className="table rules-table">
@@ -77,8 +77,8 @@ export default function RulesPanel({ rules, summary, storeName }: Props) {
                 const p = RULE_PLAIN[code];
                 return (
                   <tr key={code} className="no-click">
-                    <td><b>{p?.plain ?? r.title}</b><div className="muted small">{r.title}</div></td>
-                    <td className="small">{p?.why ?? r.basis}</td>
+                    <td><b>{r.title}</b></td>
+                    <td className="small">{r.basis}</td>
                     <td><span className={`pill dept-pill-sm dept-${p?.dept ?? "QI"}`}>{deptName(p?.dept)}</span></td>
                     <td><span className={`pill ${r.severity === "high" ? "pill-danger" : "pill-warn"}`}>{r.severity === "high" ? "필수" : "주의"}</span></td>
                     <td className="num strong">{summary.rule_counts[code] ?? 0}건</td>

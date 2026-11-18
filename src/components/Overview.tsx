@@ -35,8 +35,8 @@ export default function Overview({ summary, visits, reviews, pendingHigh, onGo }
         <p className="eyebrow">감사 현황 · {summary.period}</p>
         <h1>응급실 내원 {summary.total}건 감사 현황</h1>
         <p className="lead">
-          구역별 재실 인원이 병상 수를 넘긴 시간대, 24시간 초과 체류, 근거 없는 하향 재분류 등 검토 대상을 판정 전에 표시합니다.
-          근거 요약은 참고용이며 판정은 QI팀이 합니다.
+          응급실 침대보다 환자가 많았던 시간, 하루 넘게 머문 환자, 이유 없이 등급을 낮춘 기록처럼 다시 볼 기록을 먼저 보여 줍니다.
+          문제 요약은 참고용이며 결론은 QI팀이 냅니다.
         </p>
         <div className="hero-actions">
           <button className="btn btn-danger" onClick={() => onGo("high")}>
@@ -58,19 +58,19 @@ export default function Overview({ summary, visits, reviews, pendingHigh, onGo }
           <span className="kpi-icon tone-warn" aria-hidden><AlertTriangle /></span>
           <span className="kpi-label">주의 관찰</span>
           <strong className="kpi-value">{summary.medium}<small>건</small></strong>
-          <span className="kpi-foot">진료 지연 · 병상 대기 6시간 초과</span>
+          <span className="kpi-foot">늦은 진료, 병실 배정 6시간 넘음</span>
         </article>
         <article className="kpi">
           <span className="kpi-icon tone-ok" aria-hidden><CheckCircle2 /></span>
-          <span className="kpi-label">정상 진행</span>
+          <span className="kpi-label">문제 없음</span>
           <strong className="kpi-value">{summary.normal}<small>건</small></strong>
           <span className="kpi-foot">전체 {summary.total}건 중 {Math.round((summary.normal / summary.total) * 100)}%</span>
         </article>
         <article className="kpi">
           <span className="kpi-icon tone-accent" aria-hidden><Clock /></span>
-          <span className="kpi-label">체류 시간 중앙값</span>
+          <span className="kpi-label">응급실에 머문 시간(보통)</span>
           <strong className="kpi-value kpi-value-sm">{duration(summary.median_los_min)}</strong>
-          <span className="kpi-foot">24시간 초과 {summary.los_buckets["24시간 초과"] ?? 0}명</span>
+          <span className="kpi-foot">하루 넘게 머문 환자 {summary.los_buckets["24시간 초과"] ?? 0}명</span>
         </article>
       </section>
 
@@ -103,10 +103,10 @@ export default function Overview({ summary, visits, reviews, pendingHigh, onGo }
       <section className="card">
         <h2>이 화면이 하는 일</h2>
         <ol className="steps">
-          <li><b>구역별 재실 합산</b><span>{worst.zone} 최대 {worst.peak}명 · 병상의 {worst.ratio}%</span></li>
-          <li><b>승인 전 차단</b><span>High Risk {summary.high}건은 담당자 결정 전까지 보류</span></li>
-          <li><b>부서 소명 · QI 확정</b><span>소명 요청은 담당 부서로 배정, 답변 후 QI팀이 확정</span></li>
-          <li><b>QI 보고 반영</b><span>결정 결과를 엑셀로 내보내 위원회에 보고</span></li>
+          <li><b>구역별 붐빔 계산</b><span>{worst.zone} 침대 {worst.beds}개에 최대 {worst.peak}명({worst.ratio}%)</span></li>
+          <li><b>꼭 볼 기록 표시</b><span>{summary.high}건은 QI팀이 결론을 낼 때까지 열린 상태로 둠</span></li>
+          <li><b>부서 설명 · 최종 결론</b><span>담당 부서가 경위를 적어 내면 QI팀이 결론을 냄</span></li>
+          <li><b>보고</b><span>결과를 엑셀·PDF로 내려받아 위원회에 보고</span></li>
         </ol>
       </section>
 

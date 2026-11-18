@@ -19,40 +19,41 @@ from typing import Any
 # ── 규칙 정의 ───────────────────────────────────────────────────────────
 # severity: high = 확인 필요(빨간 카드), medium = 주의 관찰
 RULES: dict[str, dict[str, str]] = {
+    # 제목·근거는 응급의료를 모르는 사람도 읽을 수 있게 일상어로 씁니다.
     "LOS_OVER_24H": {
         "severity": "high",
-        "title": "24시간 초과 체류",
-        "basis": "응급실 재실시간 24시간 이상은 응급의료기관 평가에서 관리하는 핵심 지표입니다.",
+        "title": "응급실에 24시간 넘게 머묾",
+        "basis": "응급실은 잠깐 머무는 곳입니다. 하루를 넘기면 병원 평가에서 관리하는 지표에 해당하며, 대개 입원 병실을 구하지 못한 경우입니다.",
     },
     "DOWNGRADE_NO_REASON": {
         "severity": "high",
-        "title": "근거 없는 KTAS 하향 재분류",
-        "basis": "재분류로 등급이 낮아질 때(숫자 증가)는 재평가 근거를 기록해야 합니다.",
+        "title": "등급을 낮췄는데 이유 기록 없음",
+        "basis": "처음보다 덜 위급한 등급(숫자가 큰 쪽)으로 바꿀 때는 이유를 기록해야 합니다. 이유 없이 낮추면 위급한 환자의 순서가 뒤로 밀릴 수 있습니다.",
     },
     "UNDERTRIAGE_VITALS": {
         "severity": "high",
-        "title": "활력징후 대비 과소분류 의심",
-        "basis": "수축기혈압 <90, 산소포화도 <90%, GCS ≤12, 호흡수 ≥30 중 하나라도 있으면 KTAS 1~2 고려 대상입니다.",
+        "title": "위험 수치인데 등급이 낮음",
+        "basis": "혈압이 매우 낮거나(90 미만) 산소 수치가 90% 미만, 의식이 흐리거나(GCS 12 이하) 숨을 매우 빠르게 쉬면(분당 30회 이상) 보통 1~2등급으로 봅니다.",
     },
     "BOUNCE_BACK_72H": {
         "severity": "high",
-        "title": "72시간 내 재내원 · 등급 상향",
-        "basis": "귀가 후 72시간 안에 더 높은 중증도로 다시 온 경우 첫 방문의 분류·퇴실 판단을 검토합니다.",
+        "title": "집에 간 뒤 3일 안에 더 위급해져 다시 옴",
+        "basis": "첫 방문 때 귀가시킨 판단과 주의 사항 안내가 적절했는지 확인합니다.",
     },
     "PHYSICIAN_DELAY": {
         "severity": "medium",
-        "title": "KTAS 목표 시간 내 진료 미달",
-        "basis": "KTAS 등급별 의사 진료 목표: 1등급 즉시, 2등급 10분, 3등급 30분, 4등급 60분, 5등급 120분.",
+        "title": "목표 시간보다 늦게 진료",
+        "basis": "등급별로 의사를 만나야 하는 목표 시간이 있습니다. 1등급 즉시, 2등급 10분, 3등급 30분, 4등급 60분, 5등급 120분.",
     },
     "BOARDING_OVER_6H": {
         "severity": "medium",
-        "title": "입원 결정 후 병상 배정 6시간 초과",
-        "basis": "입원 결정 후 응급실 대기(boarding)가 길어지면 과밀화와 환자 안전 위험이 커집니다.",
+        "title": "입원이 정해졌는데 병실 배정이 6시간 넘게 걸림",
+        "basis": "입원할 환자가 응급실 침대를 오래 차지하면 새로 오는 환자를 받을 자리가 줄어듭니다.",
     },
     "DOWNGRADE_WITH_REASON": {
         "severity": "medium",
-        "title": "KTAS 하향 재분류 (근거 기록됨)",
-        "basis": "근거는 있지만 2단계 이상 하향은 담당자 확인을 권장합니다.",
+        "title": "등급을 2단계 이상 크게 낮춤",
+        "basis": "이유는 기록되었지만 낮춘 폭이 커서 한 번 더 확인합니다.",
     },
 }
 
@@ -111,35 +112,35 @@ def audit_visit(visit: dict[str, Any], targets: dict[int, int]) -> dict[str, Any
     boarding = _minutes(t["disposition_decision"], t["bed_assigned"])
 
     if los is not None and los >= LOS_LIMIT_H * 60:
-        flags.append(Flag("LOS_OVER_24H", f"총 체류 {_fmt_dur(los)} (기준 24시간)"))
+        flags.append(Flag("LOS_OVER_24H", f"응급실에 {_fmt_dur(los)} 머묾 (기준 24시간)"))
 
     ki, kf = visit["ktas_initial"], visit["ktas_final"]
     if kf > ki:
         if visit.get("retriage_reason"):
             if kf - ki >= 2:
-                flags.append(Flag("DOWNGRADE_WITH_REASON", f"KTAS {ki} → {kf} · 근거: {visit['retriage_reason']}"))
+                flags.append(Flag("DOWNGRADE_WITH_REASON", f"{ki}등급 → {kf}등급으로 낮춤 · 기록된 이유: {visit['retriage_reason']}"))
         else:
-            flags.append(Flag("DOWNGRADE_NO_REASON", f"KTAS {ki} → {kf} · 재분류 근거 기록 없음"))
+            flags.append(Flag("DOWNGRADE_NO_REASON", f"{ki}등급 → {kf}등급으로 낮췄으나 이유 기록 없음"))
 
     v = visit["vitals"]
     abnormal = []
     if v["sbp"] < 90:
-        abnormal.append(f"수축기혈압 {v['sbp']}")
+        abnormal.append(f"혈압 {v['sbp']}(낮음)")
     if v["spo2"] < 90:
-        abnormal.append(f"SpO₂ {v['spo2']}%")
+        abnormal.append(f"산소 수치 {v['spo2']}%")
     if v["gcs"] <= 12:
-        abnormal.append(f"GCS {v['gcs']}")
+        abnormal.append(f"의식 점수 {v['gcs']}")
     if v["rr"] >= 30:
-        abnormal.append(f"호흡수 {v['rr']}")
+        abnormal.append(f"호흡 분당 {v['rr']}회")
     if abnormal and kf >= 3:
-        flags.append(Flag("UNDERTRIAGE_VITALS", f"KTAS {kf}등급인데 {', '.join(abnormal)}"))
+        flags.append(Flag("UNDERTRIAGE_VITALS", f"{kf}등급으로 분류했지만 {', '.join(abnormal)}"))
 
     target = targets.get(kf)
     if target is not None and door_to_doc is not None and door_to_doc > max(target, 1) + 5:
-        flags.append(Flag("PHYSICIAN_DELAY", f"분류 후 진료까지 {_fmt_dur(door_to_doc)} (목표 {target}분)"))
+        flags.append(Flag("PHYSICIAN_DELAY", f"등급 분류 후 의사를 만나기까지 {_fmt_dur(door_to_doc)} (목표 {target}분)"))
 
     if boarding is not None and BOARDING_LIMIT_H * 60 <= boarding and (los or 0) < LOS_LIMIT_H * 60:
-        flags.append(Flag("BOARDING_OVER_6H", f"입원 결정 후 병상 배정까지 {_fmt_dur(boarding)}"))
+        flags.append(Flag("BOARDING_OVER_6H", f"입원 결정 후 병실 배정까지 {_fmt_dur(boarding)}"))
 
     return {
         "metrics": {
@@ -168,7 +169,7 @@ def _bounce_backs(visits: list[dict[str, Any]]) -> dict[str, Flag]:
             if 0 <= gap <= BOUNCE_BACK_H and nxt["ktas_final"] < prev["ktas_final"]:
                 found[nxt["visit_id"]] = Flag(
                     "BOUNCE_BACK_72H",
-                    f"{prev['visit_id']} 귀가(KTAS {prev['ktas_final']}) 후 {gap:.0f}시간 만에 KTAS {nxt['ktas_final']}로 재내원",
+                    f"{prev['visit_id']}({prev['ktas_final']}등급)에서 귀가한 뒤 {gap:.0f}시간 만에 {nxt['ktas_final']}등급으로 다시 옴",
                 )
     return found
 
@@ -264,7 +265,7 @@ def rule_based_rationale(visit: dict[str, Any]) -> dict[str, Any]:
     if not flags:
         return {
             "source": "rules",
-            "summary": "감사 규칙에 걸린 항목이 없습니다. 정상 진행 대상입니다.",
+            "summary": "점검 기준에 걸린 항목이 없습니다. 따로 볼 필요가 없는 기록입니다.",
             "suggested_action": "적정 확인",
             "checklist": [],
         }
@@ -272,18 +273,18 @@ def rule_based_rationale(visit: dict[str, Any]) -> dict[str, Any]:
     checklist = []
     codes = {f["code"] for f in flags}
     if "DOWNGRADE_NO_REASON" in codes or "UNDERTRIAGE_VITALS" in codes:
-        checklist += ["분류 간호사 재평가 기록 확인", "재분류 시점의 활력징후 재측정값 대조"]
+        checklist += ["등급을 바꿀 때 간호사가 다시 확인한 기록", "그때 다시 잰 혈압·맥박·산소 수치"]
     if "LOS_OVER_24H" in codes or "BOARDING_OVER_6H" in codes:
-        checklist += ["입원 결정 시각과 병상 요청 기록 대조", "병동 병상 가용 현황(같은 시간대) 확인"]
+        checklist += ["입원 결정 시각과 병실 요청 시각", "같은 시간대 병동의 빈 병실 현황"]
     if "PHYSICIAN_DELAY" in codes:
-        checklist += ["같은 시간대 구역 과밀화 여부 확인", "진료 시작 기록 누락 여부 확인"]
+        checklist += ["같은 시간대에 응급실이 붐볐는지", "진료 시작 시각이 빠짐없이 기록됐는지"]
     if "BOUNCE_BACK_72H" in codes:
-        checklist += ["첫 방문 퇴실 판단·교육 기록 확인", "두 방문 간 진단 변화 확인"]
+        checklist += ["첫 방문 때 귀가 판단과 주의 사항 안내 기록", "두 번째 방문에서 달라진 진단"]
 
     action = "소명 요청" if top["severity"] == "high" else "적정 확인"
     return {
         "source": "rules",
-        "summary": f"{top['title']}: {top['detail']}. " + (f"외 {len(flags) - 1}건의 신호가 함께 있습니다." if len(flags) > 1 else ""),
+        "summary": f"{top['title']}. {top['detail']}." + (f" 이 밖에 {len(flags) - 1}개 항목이 더 있습니다." if len(flags) > 1 else ""),
         "suggested_action": action,
         "checklist": checklist,
     }

@@ -89,10 +89,10 @@ function NursingBoard({ visits, onOpen }: Props) {
   return (
     <>
       <section className="kpis">
-        <Kpi label="하향 재분류" value={down.length} unit="건" foot={`상향 ${up.length}건 · 전체 재분류 ${retriaged.length}건`} tone={down.length ? "warn" : undefined} />
-        <Kpi label="하향 근거 기록률" value={pct(down.length - noReason.length, down.length)} unit="%" foot={`근거 없음 ${noReason.length}건`} tone={noReason.length ? "danger" : undefined} />
-        <Kpi label="과소분류 의심" value={under.length} unit="건" foot="활력징후 대비 낮은 등급" tone={under.length ? "danger" : undefined} />
-        <Kpi label="내원→분류 중앙값" value={triageWait ?? 0} unit="분" foot={`분류 ${visits.length}건`} />
+        <Kpi label="등급을 낮춘 건" value={down.length} unit="건" foot={`올린 건 ${up.length}, 등급을 바꾼 건 전체 ${retriaged.length}`} tone={down.length ? "warn" : undefined} />
+        <Kpi label="낮춘 이유를 적은 비율" value={pct(down.length - noReason.length, down.length)} unit="%" foot={`이유 없이 낮춤 ${noReason.length}건`} tone={noReason.length ? "danger" : undefined} />
+        <Kpi label="위험 수치인데 낮은 등급" value={under.length} unit="건" foot="혈압·산소 수치 등이 위험 범위" tone={under.length ? "danger" : undefined} />
+        <Kpi label="도착 후 등급 분류까지" value={triageWait ?? 0} unit="분" foot={`보통(중간값), 전체 ${visits.length}건`} />
       </section>
 
       <div className="grid-2">
@@ -100,7 +100,7 @@ function NursingBoard({ visits, onOpen }: Props) {
           <div className="card-head"><h2>분류 간호사별</h2><span className="muted">근거 없는 하향·과소분류가 있으면 빨간색</span></div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>간호사</th><th className="num">분류</th><th className="num">하향</th><th className="num">근거 없음</th><th className="num">과소분류</th></tr></thead>
+              <thead><tr><th>간호사</th><th className="num">분류한 환자</th><th className="num">등급 낮춤</th><th className="num">이유 없음</th><th className="num">낮게 매김 의심</th></tr></thead>
               <tbody>
                 {nurses.map((n) => (
                   <tr key={n.name} className="no-click">
@@ -165,10 +165,10 @@ function EmBoard({ visits }: Props) {
   return (
     <>
       <section className="kpis">
-        <Kpi label="목표 시간 내 진료율" value={pct(withWait.filter(met).length, withWait.length)} unit="%" foot={`${withWait.length}건 기준`} />
-        <Kpi label="진료 지연" value={delayed.length} unit="건" foot="KTAS 목표 시간 초과" tone={delayed.length ? "warn" : undefined} />
-        <Kpi label="72시간 내 재내원" value={bounce.length} unit="건" foot="귀가 후 등급 상향 재내원" tone={bounce.length ? "danger" : undefined} />
-        <Kpi label="분류→진료 중앙값" value={d2d ?? 0} unit="분" foot="전체 등급" />
+        <Kpi label="제때 진료한 비율" value={pct(withWait.filter(met).length, withWait.length)} unit="%" foot={`${withWait.length}건 기준`} />
+        <Kpi label="늦게 진료한 건" value={delayed.length} unit="건" foot="등급별 목표 시간을 넘김" tone={delayed.length ? "warn" : undefined} />
+        <Kpi label="3일 안에 다시 온 환자" value={bounce.length} unit="건" foot="집에 간 뒤 더 위급해져 다시 옴" tone={bounce.length ? "danger" : undefined} />
+        <Kpi label="분류 후 의사를 만나기까지" value={d2d ?? 0} unit="분" foot="보통(중간값), 전체 등급" />
       </section>
       <div className="grid-2">
         <section className="card">
@@ -188,7 +188,7 @@ function EmBoard({ visits }: Props) {
           <div className="card-head"><h2>담당의별 진료 대기</h2><span className="muted">목표 초과 건이 있으면 빨간색</span></div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>담당의</th><th className="num">진료</th><th className="num">대기 중앙값</th><th className="num">목표 초과</th></tr></thead>
+              <thead><tr><th>담당의</th><th className="num">진료한 환자</th><th className="num">보통 대기</th><th className="num">늦은 건</th></tr></thead>
               <tbody>
                 {docs.map((d) => (
                   <tr key={d.d} className="no-click">
@@ -229,10 +229,10 @@ function BedBoard({ summary, visits }: Props) {
   return (
     <>
       <section className="kpis">
-        <Kpi label="입원 결정" value={admitted.length} unit="건" foot={byType.map((b) => `${b.t.replace(" 입원", "")} ${b.n}`).join(" · ")} />
-        <Kpi label="병상 대기 중앙값" value={duration(median(boarding))} foot="입원 결정→병상 배정" small />
-        <Kpi label="병상 대기 6시간 이상" value={over6} unit="건" foot={`입원의 ${pct(over6, admitted.length)}%`} tone={over6 ? "warn" : undefined} />
-        <Kpi label="24시간 초과 체류" value={over24} unit="건" foot="응급의료기관 평가 지표" tone={over24 ? "danger" : undefined} />
+        <Kpi label="입원이 정해진 환자" value={admitted.length} unit="건" foot={byType.map((b) => `${b.t.replace(" 입원", "")} ${b.n}`).join(" · ")} />
+        <Kpi label="병실 배정까지 보통" value={duration(median(boarding))} foot="입원이 정해진 뒤 병실을 받기까지" small />
+        <Kpi label="병실 배정 6시간 넘음" value={over6} unit="건" foot={`입원의 ${pct(over6, admitted.length)}%`} tone={over6 ? "warn" : undefined} />
+        <Kpi label="응급실 24시간 넘게 머묾" value={over24} unit="건" foot="병원 평가에서 보는 항목" tone={over24 ? "danger" : undefined} />
       </section>
       <div className="grid-2">
         <section className="card">

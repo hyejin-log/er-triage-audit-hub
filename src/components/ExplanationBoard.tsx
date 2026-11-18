@@ -14,6 +14,7 @@ interface Props {
   onOpen: (v: Visit) => void;
   onGo: (t: Tab) => void;
   onReset: () => Promise<boolean>;
+  onSeed: () => Promise<boolean>;
 }
 
 export default function ExplanationBoard(props: Props) {
@@ -73,7 +74,7 @@ function DeptView({ visits, reviews, user, onRespond, onOpen }: Props & { user: 
 }
 
 function RespondCard({ visit, review, onRespond, onOpen }: { visit: Visit; review: Review; onRespond: Props["onRespond"]; onOpen: (v: Visit) => void }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => demoResponse(visit)); // [기획 > 시연] 예시 소명을 미리 채움
   const respId = useId();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -113,7 +114,7 @@ function RespondCard({ visit, review, onRespond, onOpen }: { visit: Visit; revie
         <div className="field-head">
           <label htmlFor={respId}>소명 내용</label>
           <button type="button" className="demo-fill" onClick={() => { setText(demoResponse(visit)); setError(null); }}>
-            <Wand2 className="ico" />데모 문구 넣기
+            <Wand2 className="ico" />예시 문구 다시 넣기
           </button>
         </div>
         <textarea
@@ -132,8 +133,10 @@ function RespondCard({ visit, review, onRespond, onOpen }: { visit: Visit; revie
 }
 
 // ── QI팀·비로그인 화면 ───────────────────────────────────────────────
-function QiView({ visits, reviews, user, onOpen, onGo, onReset }: Props) {
+function QiView({ visits, reviews, user, onOpen, onGo, onReset, onSeed }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const [seedConfirm, setSeedConfirm] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const byId = new Map(visits.map((v) => [v.visit_id, v]));
   const list = Object.values(reviews).filter((r) => r.assigned_dept);
   const total = Object.keys(reviews).length;
@@ -149,7 +152,27 @@ function QiView({ visits, reviews, user, onOpen, onGo, onReset }: Props) {
           <h1 className="page-title">소명 현황</h1>
           <p className="muted">QI팀이 소명을 요청하면 감사 항목에 따라 담당 부서로 배정됩니다. 부서가 제출한 소명은 ‘확인 필요·주의 관찰’ 큐로 돌아와 QI팀이 최종 확정합니다.</p>
         </div>
-        {user?.dept === "QI" && total > 0 && (
+        {user?.dept === "QI" && (
+          <div className="demo-tools">
+            {seedConfirm ? (
+              <div className="confirm-box" role="alertdialog" aria-label="예시 기록 채우기 확인">
+                <span className="small">
+                  {total > 0 ? <>지금 기록 <b>{total}건</b>과 팀 메모를 지우고 </> : null}
+                  판정 완료, 소명 제출, 소명 요청중 단계의 예시 기록과 부서별 팀 메모를 만듭니다.
+                </span>
+                <div className="row-gap">
+                  <button className="btn btn-sm btn-ghost" onClick={() => setSeedConfirm(false)}>취소</button>
+                  <button className="btn btn-sm btn-primary" disabled={seeding} onClick={async () => { setSeeding(true); await onSeed(); setSeeding(false); setSeedConfirm(false); }}>
+                    {seeding ? "만드는 중…" : "예시 기록 만들기"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn btn-sm btn-primary" onClick={() => { setSeedConfirm(true); setConfirming(false); }}>예시 기록 채우기</button>
+            )}
+          </div>
+        )}
+        {user?.dept === "QI" && total > 0 && !seedConfirm && (
           confirming ? (
             <div className="confirm-box" role="alertdialog" aria-label="데모 초기화 확인">
               <span className="small">결정·소명 <b>{total}건</b>과 모든 팀 메모를 삭제합니다. 되돌릴 수 없습니다.</span>

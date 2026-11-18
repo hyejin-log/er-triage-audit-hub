@@ -801,3 +801,17 @@ p { margin: 0; }
 .demo-fill:hover { border-style: solid; }
 .demo-fill .ico { width: 13px; height: 13px; }
 .rs-role { font-weight: 600; color: var(--c-text-2); font-size: 13px; margin-left: 6px; }
+.demo-tools { display: flex; gap: 8px; align-items: flex-start; }
+
+/* [기획 > 사용자 이해] 판정 버튼 아래 짧은 뜻 */
+.seg-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.25; }
+.seg-hint { font-size: 11px; font-weight: 500; opacity: 0.75; }
+
+/* [유지보수] 목록 줄: 긴 설명이 제목 칸을 밀어내지 않게 칸 너비 고정, 설명은 두 줄까지 */
+.done-list li { grid-template-columns: 110px minmax(160px, 1fr) auto minmax(0, 2fr) auto; }
+.done-list li > span.muted:nth-child(2) { white-space: normal; word-break: keep-all; }
+.done-list li > span.small:nth-child(4) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 760px) {
+  .done-list li { grid-template-columns: 1fr auto; }
+  .done-list li > *:nth-child(2), .done-list li > *:nth-child(4) { grid-column: 1 / -1; }
+}

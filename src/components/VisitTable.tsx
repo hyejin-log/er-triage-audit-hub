@@ -164,34 +164,34 @@ function checklist(v: Visit): Check[] {
   const target = m.ktas_target_min ?? 0;
   return [
     {
-      label: "중증도 분류 적정성",
+      label: "등급이 몸 상태에 맞는지",
       state: has("UNDERTRIAGE_VITALS") ? "bad" : "ok",
-      value: has("UNDERTRIAGE_VITALS") ? "과소분류 의심" : "활력징후와 일치",
+      value: has("UNDERTRIAGE_VITALS") ? "실제보다 낮게 매긴 듯함" : "수치와 맞음",
     },
     {
-      label: "재분류 근거 기록",
+      label: "등급을 바꾼 이유 기록",
       state: v.ktas_initial === v.ktas_final ? "na" : v.ktas_final > v.ktas_initial && !v.retriage_reason ? "bad" : "ok",
-      value: v.ktas_initial === v.ktas_final ? "재분류 없음" : v.retriage_reason ? "기록됨" : v.ktas_final > v.ktas_initial ? "근거 없음" : "상향 재분류",
+      value: v.ktas_initial === v.ktas_final ? "등급 그대로" : v.retriage_reason ? "이유 있음" : v.ktas_final > v.ktas_initial ? "이유 없이 낮춤" : "더 위급하게 바꿈",
     },
     {
-      label: "진료 목표 시간",
+      label: "제때 의사를 만났는지",
       state: has("PHYSICIAN_DELAY") ? "warn" : "ok",
-      value: `${has("PHYSICIAN_DELAY") ? "초과" : "통과"} (${duration(m.door_to_doc_min)} / 목표 ${target ? `${target}분` : "즉시"})`,
+      value: `${has("PHYSICIAN_DELAY") ? "늦음" : "제때"} (${duration(m.door_to_doc_min)}, 목표 ${target ? `${target}분` : "즉시"})`,
     },
     {
-      label: "응급실 체류 24시간",
+      label: "응급실에 머문 시간",
       state: has("LOS_OVER_24H") ? "bad" : "ok",
       value: duration(m.los_min),
     },
     {
-      label: "입원 병상 배정 대기",
+      label: "입원 병실 배정까지",
       state: m.boarding_min == null ? "na" : has("BOARDING_OVER_6H") || m.boarding_min >= 360 ? "warn" : "ok",
-      value: m.boarding_min == null ? "해당 없음" : duration(m.boarding_min),
+      value: m.boarding_min == null ? "입원 안 함" : duration(m.boarding_min),
     },
     {
-      label: "72시간 내 재내원",
+      label: "3일 안에 다시 왔는지",
       state: has("BOUNCE_BACK_72H") ? "bad" : "ok",
-      value: has("BOUNCE_BACK_72H") ? "등급 상향 재내원" : "없음",
+      value: has("BOUNCE_BACK_72H") ? "더 위급해져 다시 옴" : "없음",
     },
   ];
 }

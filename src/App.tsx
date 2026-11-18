@@ -244,6 +244,17 @@ export default function App() {
     [guard],
   );
 
+  // [기획 > 시연] 예시 기록 채우기 (QI팀)
+  const seedDemo = useCallback(
+    () =>
+      guard(async () => {
+        const r = await api.seedDemo();
+        await loadReviews();
+        setToast(`예시 기록을 만들었습니다 (종결 ${r.closed}, 소명 제출 ${r.answered}, 소명 요청중 ${r.requested}, 팀 메모 ${r.notes})`);
+      }),
+    [guard, loadReviews],
+  );
+
   const resetDemo = useCallback(
     () =>
       guard(async () => {
@@ -388,6 +399,7 @@ export default function App() {
                 onOpen={setSelected}
                 onGo={setTab}
                 onReset={resetDemo}
+                onSeed={seedDemo}
               />
             )}
             {tab === "all" && <VisitTable visits={visits} reviews={reviews} zones={summary.zones.map((z) => z.zone)} hospital={summary.hospital} onOpen={setSelected} />}
