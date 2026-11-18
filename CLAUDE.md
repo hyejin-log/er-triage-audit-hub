@@ -61,6 +61,7 @@
   - 형식: `type(scope): 요약` / 본문에 `- [단계] 변경 내용`
   - type: `feat` 기능, `fix` 버그, `chore` 설정·배포, `docs` 문서, `refactor`, `style`, `test`
 - **재배포**: Vercel 대시보드의 Redeploy 대신 `develop` → `main` 커밋 push로 합니다(예전 배포가 운영으로 올라간 적이 있음).
+- **push 순서**: `develop`에서 커밋 → `main`에 fast-forward 병합 → **`main`을 먼저 push**하고 그다음 `develop`을 push합니다. `develop`을 먼저 올리면 같은 커밋이 Preview로만 배포되고 Production 배포가 건너뛰어진 적이 있습니다(2026-11-18). 배포 후에는 운영 번들이 바뀌었는지 확인합니다.
 - **비밀값**: `.env`·키·연결 문자열은 커밋하지 않습니다. 필요한 변수 이름은 `.env.example`에만 적습니다.
 
 ### 예외 처리 규칙
